@@ -9,8 +9,8 @@ description = "AI-driven hyperlocal severe-weather nowcasting — SIH prototype 
 requires-python = ">=3.10"
 dynamic = ["dependencies"]
 
-[tool.setuptools]
-packages = ["nowcast"]
+[tool.setuptools.packages.find]
+include = ["nowcast*"]
 
 [tool.setuptools.dynamic]
 dependencies = { file = ["requirements.txt"] }
