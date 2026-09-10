@@ -1,0 +1,23 @@
+# Small ConvLSTM nowcasting config -- CPU-friendly smoke / baseline run.
+data:
+  source: synthetic
+  n_hours: 56
+  batch_size: 4
+
+model:
+  backbone:
+    in_channels: 20
+    hidden: 16
+    depth: 2
+  lr: 3.0e-4
+  weight_decay: 1.0e-4
+  bce_weight: 1.0
+  dice_weight: 0.5
+  hazard_weights:
+    thunderstorm: 1.0
+    cloudburst: 1.0
+    flash_flood: 1.0
+
+trainer:
+  max_epochs: 20
+  log_every_n_steps: 10

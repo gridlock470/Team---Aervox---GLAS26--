@@ -17,8 +17,8 @@ lightning_logs/
 *.ckpt
 wandb/
 
-# Data (never commit raw or processed datasets)
-data/
+# Data (never commit raw or processed datasets) — repo-root only, not nowcast/data/
+/data/
 *.nc
 *.nc4
 *.h5
