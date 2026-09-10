@@ -1,0 +1,43 @@
+/* ---------- nav rail ---------- */
+.nav-rail{ grid-area:navrail; display:flex; flex-direction:column; gap:16px; }
+.nav-section h3{
+  font-size:12px;
+  font-weight:600;
+  color:var(--ink-dim);
+  padding:0 2px 8px;
+}
+.hazard-list{ display:flex; flex-direction:column; gap:6px; }
+.hazard-btn{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-left:3px solid var(--line);
+  border-radius:6px;
+  padding:9px 11px;
+  cursor:pointer;
+  text-align:left;
+}
+.hazard-btn[aria-pressed="true"]{
+  background:var(--panel-raised);
+}
+.hazard-btn .name{ font-size:13px; font-weight:500; }
+.hazard-btn .reading{
+  display:flex; align-items:center; gap:7px;
+}
+.sev-dot{
+  width:9px; height:9px; border-radius:50%; flex:none;
+}
+.hazard-btn .pct{ font-size:12.5px; color:var(--ink-dim); }
+
+.station-list{ display:flex; flex-direction:column; gap:2px; }
+.station-row{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:7px 8px;
+  border-radius:6px;
+  font-size:12.5px;
+}
+.station-row .name{ display:flex; align-items:center; gap:8px; color:var(--ink); }
+.station-row .pct{ color:var(--ink-dim); }

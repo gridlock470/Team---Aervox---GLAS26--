@@ -1,0 +1,45 @@
+/* ---------- shell ---------- */
+.shell{
+  max-width:1400px;
+  margin:0 auto;
+  padding:20px 24px 32px;
+  display:grid;
+  grid-template-columns:216px 1fr 308px;
+  grid-template-areas:
+    "header header header"
+    "navrail hero xairail"
+    "timeline timeline timeline";
+  column-gap:18px;
+  row-gap:18px;
+}
+@media (max-width: 980px){
+  .shell{
+    grid-template-columns:1fr;
+    grid-template-areas:
+      "header"
+      "hero"
+      "navrail"
+      "xairail"
+      "timeline";
+  }
+}
+
+/* ---------- panels (shared) ---------- */
+.panel{
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:8px;
+}
+.panel-head{
+  padding:13px 16px;
+  border-bottom:1px solid var(--line);
+  display:flex;
+  justify-content:space-between;
+  align-items:baseline;
+  gap:10px;
+}
+.panel-head h2{
+  font-size:13px;
+  font-weight:600;
+}
+.panel-body{ padding:14px 16px; }

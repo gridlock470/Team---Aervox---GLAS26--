@@ -1,0 +1,35 @@
+/* ---------- timeline strip ---------- */
+.timeline-strip{
+  grid-area:timeline;
+  border-top:1px solid var(--line);
+  padding-top:16px;
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+}
+.timeline-controls{
+  display:flex; align-items:center; gap:22px; flex-wrap:wrap;
+}
+.timeline-track{ display:flex; align-items:center; gap:6px; }
+.step-btn{
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:6px;
+  padding:8px 14px;
+  font-size:12.5px;
+  color:var(--ink-dim);
+  cursor:pointer;
+}
+.step-btn[aria-pressed="true"]{
+  background:var(--panel-raised);
+  color:var(--ink);
+  border-color:#33465F;
+}
+.step-connector{ width:16px; height:1px; background:var(--line); }
+.timeline-readout{ font-size:12.5px; color:var(--ink-dim); }
+.timeline-readout .mono{ color:var(--ink); }
+.provenance{
+  font-size:11.5px;
+  color:var(--ink-faint);
+  max-width:92ch;
+}

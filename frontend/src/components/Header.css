@@ -1,0 +1,71 @@
+/* ---------- header ---------- */
+.console-header{
+  grid-area:header;
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-end;
+  gap:24px;
+  border-bottom:1px solid var(--line);
+  padding-bottom:16px;
+  flex-wrap:wrap;
+}
+.console-header .brand h1{
+  font-size:21px;
+  font-weight:700;
+  letter-spacing:-0.01em;
+}
+.console-header .brand p{
+  margin-top:6px;
+  max-width:46ch;
+  color:var(--ink-dim);
+  font-size:13px;
+}
+.header-controls{
+  display:flex;
+  align-items:center;
+  gap:18px;
+  flex-wrap:wrap;
+}
+.segmented{
+  display:inline-flex;
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:7px;
+  padding:3px;
+  gap:2px;
+}
+.segmented button{
+  background:transparent;
+  border:0;
+  border-radius:5px;
+  padding:7px 13px;
+  font-size:13px;
+  font-weight:500;
+  color:var(--ink-dim);
+  cursor:pointer;
+}
+.segmented button[aria-pressed="true"]{
+  background:var(--panel-raised);
+  color:var(--ink);
+}
+.status-block{
+  text-align:right;
+}
+.live-pill{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  font-size:12px;
+  color:var(--ink-dim);
+}
+.live-dot{
+  width:7px; height:7px; border-radius:50%;
+  background:var(--sev-green);
+  box-shadow:0 0 0 3px rgba(63,143,99,0.18);
+}
+.status-block .clock{
+  display:block;
+  margin-top:4px;
+  font-size:13px;
+  color:var(--ink);
+}

@@ -1,0 +1,45 @@
+@import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+:root{
+  --bg:#0A1420;
+  --panel:#111E2E;
+  --panel-raised:#16283B;
+  --line:#263850;
+  --line-soft:#1C2C40;
+  --ink:#E8EEF5;
+  --ink-dim:#8698AC;
+  --ink-faint:#56687C;
+
+  --sev-green:#3F8F63;
+  --sev-yellow:#96982E;
+  --sev-orange:#C6621F;
+  --sev-red:#BC3B3E;
+
+  --seq:#5B8FB0;
+  --seq-soft:#2A4155;
+
+  --focus:#6FA8C9;
+}
+
+*{ box-sizing:border-box; }
+html,body{ margin:0; padding:0; }
+body{
+  background:var(--bg);
+  color:var(--ink);
+  font-family:'Archivo', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-size:14px;
+  line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+.mono{
+  font-family:'IBM Plex Mono', ui-monospace, 'Cascadia Code', monospace;
+  font-variant-numeric:tabular-nums;
+  letter-spacing:0.01em;
+}
+h1,h2,h3,p{ margin:0; }
+button{ font:inherit; color:inherit; }
+:focus-visible{ outline:2px solid var(--focus); outline-offset:2px; }
+
+@media (prefers-reduced-motion: reduce){
+  *{ transition:none !important; animation:none !important; }
+}
