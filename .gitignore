@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# ML / experiment tracking
+mlruns/
+mlartifacts/
+lightning_logs/
+*.ckpt
+wandb/
+
+# Data (never commit raw or processed datasets)
+data/
+*.nc
+*.nc4
+*.h5
+*.hdf5
+*.grib
+*.grib2
+*.zarr/
+*.tif
+*.tiff
+*.parquet
+
+# Prefect
+.prefect/
+
+# Node / frontend
+node_modules/
+dist/
+.vite/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
