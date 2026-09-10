@@ -4,7 +4,7 @@
 #   pip install torch --index-url https://download.pytorch.org/whl/cu121
 
 # --- core scientific stack ---
-numpy>=1.26,<2.1
+numpy>=1.26
 pandas>=2.1
 scipy>=1.11
 xarray>=2024.3.0
@@ -25,7 +25,7 @@ pysheds>=0.4
 metpy>=1.6
 
 # --- ingestion orchestration ---
-prefect>=2.19,<3
+prefect>=2.19
 
 # --- ML: baseline ---
 lightgbm>=4.3
@@ -33,7 +33,7 @@ scikit-learn>=1.4
 
 # --- ML: deep model ---
 torch>=2.2
-pytorch-lightning>=2.2
+lightning>=2.2
 torchmetrics>=1.3
 
 # --- experiment tracking ---
