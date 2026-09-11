@@ -106,6 +106,39 @@ LABEL_SMOOTH_SIGMA: float = 1.0
 LABEL_OCCURRENCE_THRESHOLD: float = 0.5
 
 # ---------------------------------------------------------------------------
+# Rare-event loss weighting (consumed by nowcast.training.losses)
+# ---------------------------------------------------------------------------
+# Positive cells are ~1e-4 to 1e-5 of all cell-hours, so an unweighted BCE is
+# minimised by predicting "no event" everywhere. The three focal constants and
+# the BCE positive weight below counteract that; they are defaults only — the
+# LightningModule may override them from its YAML config.
+
+# Weight of the focal term inside MultiTaskLoss (alongside bce=1.0, dice=0.5).
+# With alpha=0.25 and gamma=2.0 the focal term is roughly an order of magnitude
+# smaller than plain BCE on the same batch, so a unit weight makes it a real
+# contributor to the gradient without letting it dominate BCE or Dice.
+FOCAL_WEIGHT: float = 1.0
+
+# Focal alpha: static weight given to positive cells (1 - alpha goes to
+# negatives). 0.25 is the Lin et al. (2017) value; it is deliberately small
+# because gamma already supplies most of the rare-class emphasis, and a larger
+# alpha on a 1e-4 base rate over-forecasts badly.
+FOCAL_ALPHA: float = 0.25
+
+# Focal gamma: exponent that down-weights easy, confidently-correct cells by
+# (1 - p_t) ** gamma. 2.0 is the Lin et al. (2017) value and cuts the loss of a
+# p_t = 0.9 easy negative by 100x, which is exactly the regime a field of
+# almost-all-negative cells lives in.
+FOCAL_GAMMA: float = 2.0
+
+# pos_weight for masked_bce_with_logits: multiplier on the positive term of the
+# BCE. Full inverse frequency would be ~1e4 and makes the gradient explode and
+# the model over-forecast; 20 is a capped value that lifts the positive-cell
+# share of the gradient to a trainable level while keeping the output close
+# enough to calibrated for the post-hoc calibration stage to fix the rest.
+BCE_POS_WEIGHT: float = 20.0
+
+# ---------------------------------------------------------------------------
 # Reproducibility
 # ---------------------------------------------------------------------------
 RANDOM_SEED: int = 1234
