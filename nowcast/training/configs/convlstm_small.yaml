@@ -18,7 +18,11 @@ model:
   weight_decay: 1.0e-4
   bce_weight: 1.0
   dice_weight: 0.5
-  focal_weight: 0.0          # > 0 adds a focal-loss term for rare-class emphasis
+  # Rare-event knobs. focal_weight was 0.0 here, which overrode
+  # config.FOCAL_WEIGHT and disabled focal loss for every run started from
+  # this file.
+  focal_weight: 1.0          # focal-loss term for rare-class emphasis
+  pos_weight: 20.0           # positive-class weight in BCE; see config.BCE_POS_WEIGHT
   hazard_weights:
     thunderstorm: 1.0
     cloudburst: 1.0

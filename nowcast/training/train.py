@@ -63,7 +63,13 @@ def build(cfg: dict) -> tuple[NowcastDataModule, LitNowcast]:
         max_epochs=int(trainer_cfg.get("max_epochs", 20)),
         bce_weight=float(model_cfg.get("bce_weight", 1.0)),
         dice_weight=float(model_cfg.get("dice_weight", 0.5)),
-        focal_weight=float(model_cfg.get("focal_weight", 0.0)),
+        # Fall back to the config values, not to 0.0. A hard-coded zero here
+        # silently disabled focal loss for every run launched through this
+        # entrypoint, however it was configured elsewhere.
+        focal_weight=float(model_cfg.get("focal_weight", nc_config.FOCAL_WEIGHT)),
+        focal_alpha=float(model_cfg.get("focal_alpha", nc_config.FOCAL_ALPHA)),
+        focal_gamma=float(model_cfg.get("focal_gamma", nc_config.FOCAL_GAMMA)),
+        pos_weight=float(model_cfg.get("pos_weight", nc_config.BCE_POS_WEIGHT)),
     )
     return datamodule, module
 
