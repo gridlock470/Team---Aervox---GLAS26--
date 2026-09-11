@@ -63,8 +63,8 @@ def _open_many(paths: Sequence[Path]) -> xr.Dataset:
 def load_imdaa_single_level(
     paths: str | Path | Iterable[str | Path],
     *,
-    accum_window_h: float = 1.0,
-    cumulative_accum: bool = False,
+    accum_window_h: float | None = None,
+    cumulative_accum: bool | None = None,
 ) -> xr.Dataset:
     """Load IMDAA single-level fields onto the target grid.
 
@@ -72,12 +72,11 @@ def load_imdaa_single_level(
     ----------
     paths:
         One path or an iterable of paths to IMDAA single-level NetCDF files.
-    accum_window_h:
-        Accumulation window of the raw ``APCP`` field in hours (used to turn
-        the accumulated depth into ``mm h-1``).
-    cumulative_accum:
-        Set ``True`` if ``APCP`` is a running total rather than a per-step
-        accumulation.
+    accum_window_h, cumulative_accum:
+        Optional overrides for the ``APCP`` accumulation convention. ``None``
+        (default) trusts the documented product convention encoded on
+        ``names.IMDAA_SINGLE_LEVEL["APCP_sfc"]`` (cumulative, resets each
+        cycle, 1 h first step).
 
     Returns
     -------

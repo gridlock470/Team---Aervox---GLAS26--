@@ -35,10 +35,49 @@ def test_hand_non_negative(synthetic_dem):
     assert float(hand.min()) >= 0.0
 
 
-def test_flow_direction_uses_esri_codes(synthetic_dem):
+def test_flow_direction_uses_d8_codes(synthetic_dem):
+    """Codes are the ESRI D8 *values* (0 for sinks); compass semantics are not
+    remapped for the lat-ascending grid -- see the routing module docstring."""
     fdir = routing.compute_routing(synthetic_dem)["flow_direction"].values
     valid = {0, 1, 2, 4, 8, 16, 32, 64, 128}
     assert set(np.unique(fdir).astype(int)).issubset(valid)
+
+
+def test_d8_table_matches_label_router_offsets():
+    """The (drow, dcol) -> code table must stay identical to the label-side
+    accumulator so routing and labels agree on drainage."""
+    from nowcast.features.labels import _D8_OFFSETS
+
+    routing_offsets = {code: (dr, dc) for dr, dc, code, _ in routing._D8}
+    assert routing_offsets == _D8_OFFSETS
+
+
+def test_numpy_flowdir_agrees_with_pysheds_on_tilted_plane():
+    """On a monotone tilted plane every interior cell has one unambiguous
+    steepest-descent neighbour; the numpy and pysheds pointers must match
+    there. The pysheds side is skipped when pysheds is unusable in this env."""
+    import xarray as xr
+
+    h, w = config.GRID_SHAPE
+    yy, xx = np.meshgrid(np.arange(h), np.arange(w), indexing="ij")
+    elev = (200.0 + 3.0 * yy + 1.0 * xx).astype("float64")  # drops toward -row, -col
+    dem = xr.DataArray(
+        elev,
+        dims=("lat", "lon"),
+        coords={"lat": config.GRID_LAT, "lon": config.GRID_LON},
+    )
+    # exercise the public path too (returns numpy backend in this env)
+    assert routing.compute_routing(dem, stream_threshold=1.0)["flow_direction"].shape == (h, w)
+
+    interior = np.zeros((h, w), dtype=bool)
+    interior[1:-1, 1:-1] = True
+    fdir_np = routing._d8_numpy(elev, None)["flow_direction"]
+    # steepest descent on this plane is due -row (code 64)
+    assert set(np.unique(fdir_np[interior]).astype(int)) == {64}
+
+    if routing.routing_backend() == "pysheds":  # pragma: no cover - env dependent
+        fdir_ps = routing._d8_pysheds(elev, None)["flow_direction"]
+        assert (fdir_np[interior] == fdir_ps[interior]).mean() > 0.95
 
 
 def test_numpy_backend_directly(synthetic_dem):

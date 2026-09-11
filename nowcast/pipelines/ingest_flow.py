@@ -19,6 +19,8 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
+import numpy as np
+import pandas as pd
 import xarray as xr
 
 from nowcast import config
@@ -77,7 +79,16 @@ def _stage_precip(surface, mera_paths, imerg_paths, insat_qpe_paths) -> xr.Datas
     if mera_ds is None and imerg_ds is None and qpe_ds is None:
         return surface
     merged = merge_precip.merge_precip(mera=mera_ds, imerg=imerg_ds, insat_qpe=qpe_ds)
-    merged = merged.reindex(time=surface["time"], method="nearest")
+    if np.issubdtype(np.asarray(merged["time"].values).dtype, np.datetime64):
+        # snap to the IMDAA clock, but never carry a value across a gap larger
+        # than one datacube step (cells outside tolerance become NaN).
+        merged = merged.reindex(
+            time=surface["time"],
+            method="nearest",
+            tolerance=pd.Timedelta(config.TIMESTEP),
+        )
+    else:
+        merged = merged.reindex(time=surface["time"], method="nearest")
     return surface.assign(precip=merged)
 
 

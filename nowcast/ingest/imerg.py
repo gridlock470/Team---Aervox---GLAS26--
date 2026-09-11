@@ -21,7 +21,7 @@ from nowcast import config
 from nowcast.common import grid as _grid
 from nowcast.common import io as _io
 from nowcast.ingest import names as _names
-from nowcast.ingest._util import apply_var_map, select_schema_vars
+from nowcast.ingest._util import apply_var_map, resample_to_step, select_schema_vars
 
 __all__ = ["fetch_imerg", "load_imerg", "ImergAuthError"]
 
@@ -88,6 +88,7 @@ def load_imerg(
     paths: str | Path | Iterable[str | Path],
     *,
     group: str | None = "Grid",
+    resample: bool = True,
 ) -> xr.Dataset:
     """Load local IMERG granules and return ``precip`` (``mm h-1``) on the grid.
 
@@ -98,6 +99,10 @@ def load_imerg(
     group:
         NetCDF group that holds the gridded fields (IMERG V07 uses ``"Grid"``);
         pass ``None`` for flat files such as the synthetic test fixtures.
+    resample:
+        Bin-average the native half-hourly (``GPM_3IMERGHH``) rate onto the
+        datacube step ``config.TIMESTEP`` before returning. Skipped when the
+        time axis is non-datetime or single-step.
     """
     if isinstance(paths, (str, Path)):
         paths = [paths]
@@ -113,6 +118,8 @@ def load_imerg(
     mapped = select_schema_vars(mapped, ("precip",))
     if "precip" not in mapped:
         raise ValueError("no IMERG precipitation variable recognised in the input files")
+    if resample:
+        mapped = resample_to_step(mapped, config.TIMESTEP, how="mean")
     mapped = _grid.crop_bbox(mapped)
     mapped = _grid.regrid_to_target(mapped, method="linear")
     mapped["precip"] = mapped["precip"].clip(min=0.0)

@@ -22,8 +22,8 @@ __all__ = ["load_mera"]
 def load_mera(
     paths: str | Path | Iterable[str | Path],
     *,
-    accum_window_h: float = 1.0,
-    cumulative_accum: bool = True,
+    accum_window_h: float | None = None,
+    cumulative_accum: bool | None = None,
 ) -> xr.Dataset:
     """Load MERA precipitation onto the target grid as ``precip`` (``mm h-1``).
 
@@ -31,11 +31,10 @@ def load_mera(
     ----------
     paths:
         One or more MERA NetCDF files.
-    accum_window_h:
-        Accumulation window in hours for an accumulated raw field.
-    cumulative_accum:
-        Whether the raw accumulation is a running total (MERA ``tp`` usually
-        is) rather than a per-step value.
+    accum_window_h, cumulative_accum:
+        Optional overrides for the accumulation convention. ``None`` (default)
+        trusts ``names.MERA_VARS`` (``PRATE`` = instantaneous rate; ``APCP`` /
+        ``tp`` = cumulative since cycle init, reset each cycle, 1 h first step).
     """
     if isinstance(paths, (str, Path)):
         paths = [paths]

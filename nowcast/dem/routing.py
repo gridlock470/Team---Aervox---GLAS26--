@@ -7,11 +7,26 @@ imported or fails. Both paths return the same :class:`xarray.Dataset`.
 
 Output variables (dims ``(lat, lon)``), matching :data:`nowcast.schema.STATIC_VARS`:
 
-* ``flow_direction`` -- ESRI D8 pointer (1,2,4,...,128; 0 at outlets)
+* ``flow_direction`` -- D8 pointer, codes ``1,2,4,...,128`` (``0`` at
+  outlets/sinks). See "D8 code convention" below.
 * ``flow_accumulation`` -- number of cells draining through each cell (>= 1)
 * ``streams`` -- boolean channel mask (accumulation over a threshold)
 * ``hand`` -- height above nearest drainage (m, >= 0)
 * ``slope`` -- terrain slope in degrees
+
+D8 code convention
+------------------
+The numeric codes are the ESRI D8 *values* paired with the array-offset table
+below. That offset table is **shared verbatim** with
+:data:`nowcast.features.labels._D8_OFFSETS` (the label-side flow accumulator)
+and matches the pysheds default ``dirmap`` in array space, so the numpy and
+pysheds branches and the downstream label router are all mutually consistent.
+
+The codes are **not** re-mapped for the lat-ascending project grid: rows
+increase northward, so e.g. code ``4`` -> offset ``(+1, 0)`` means "flows
+toward increasing latitude" (geographic *north* here), even though ESRI names
+value 4 "South". Only the drainage *topology* is guaranteed meaningful; the
+compass names attached to the raw ESRI values are not.
 """
 
 from __future__ import annotations
@@ -25,7 +40,11 @@ from nowcast import config
 
 __all__ = ["compute_routing", "routing_backend"]
 
-# ESRI D8 encoding: (drow, dcol, code, distance-in-cells)
+# D8 table: (drow, dcol, ESRI code, distance-in-cells). The (drow, dcol) ->
+# code mapping is identical to nowcast.features.labels._D8_OFFSETS and to the
+# pysheds default dirmap in array space. See the module docstring: codes are
+# NOT reinterpreted for the lat-ascending grid, so code 4 == offset (+1, 0) ==
+# "toward increasing latitude" (north here), not ESRI's "South".
 _D8: tuple[tuple[int, int, int, float], ...] = (
     (0, 1, 1, 1.0),
     (1, 1, 2, np.sqrt(2)),
@@ -193,6 +212,8 @@ def _d8_pysheds(elev: np.ndarray, stream_threshold: float | None) -> dict[str, n
     pit_filled = grid.fill_pits(dem)
     flooded = grid.fill_depressions(pit_filled)
     inflated = grid.resolve_flats(flooded)
+    # pysheds default dirmap; its array-space offsets equal ``_D8`` above, so the
+    # numpy and pysheds ``flow_direction`` codes agree cell-for-cell.
     dirmap = (64, 128, 1, 2, 4, 8, 16, 32)
     fdir = grid.flowdir(inflated, dirmap=dirmap)
     acc = grid.accumulation(fdir, dirmap=dirmap)
@@ -264,7 +285,11 @@ def compute_routing(
         },
         coords={"lat": lat, "lon": lon},
     )
-    ds["flow_direction"].attrs.update(units="1", long_name="ESRI D8 flow direction")
+    ds["flow_direction"].attrs.update(
+        units="1",
+        long_name="D8 flow-direction code (ESRI values, array-offset convention)",
+        note="codes not remapped for lat-ascending grid; see nowcast.dem.routing docstring",
+    )
     ds["flow_accumulation"].attrs.update(units="cells", long_name="flow accumulation")
     ds["streams"].attrs.update(units="bool", long_name="channel network mask")
     ds["hand"].attrs.update(units="m", long_name="height above nearest drainage")

@@ -10,6 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 import xarray as xr
 
 from nowcast import config, schema
@@ -18,6 +19,29 @@ from nowcast.common import io as _io
 __all__ = ["build_datacube", "write_datacube", "open_datacube"]
 
 _LEVELS = np.asarray(config.PRESSURE_LEVELS_HPA, dtype="float64")
+
+
+def _align_time(
+    ds: xr.Dataset,
+    ref_time: xr.DataArray | None,
+    *,
+    tolerance: str | None = None,
+) -> xr.Dataset:
+    """Reindex ``ds`` onto ``ref_time`` (the surface/IMDAA clock).
+
+    ``tolerance`` (a pandas offset string) bounds a nearest-match reindex so a
+    stale sample is never carried across a gap; without it an exact reindex is
+    used. A missing / non-datetime time axis passes through untouched.
+    """
+    if ref_time is None or "time" not in ds.coords:
+        return ds
+    if not np.issubdtype(np.asarray(ds["time"].values).dtype, np.datetime64):
+        return ds
+    if tolerance is None:
+        return ds.reindex(time=ref_time)
+    return ds.reindex(
+        time=ref_time, method="nearest", tolerance=pd.Timedelta(tolerance)
+    )
 
 
 def _ensure_grid_coords(ds: xr.Dataset) -> xr.Dataset:
@@ -63,9 +87,10 @@ def build_datacube(
         The datacube. Dimension order follows ``schema.SURFACE_DIMS`` /
         ``schema.LEVEL_DIMS`` / ``schema.STATIC_DIMS``.
     """
-    parts: list[xr.Dataset] = [surface, level]
+    ref_time = surface["time"] if "time" in surface.coords else None
+    parts: list[xr.Dataset] = [surface, _align_time(level, ref_time)]
     if satellite is not None:
-        parts.append(satellite)
+        parts.append(_align_time(satellite, ref_time, tolerance=config.TIMESTEP))
     if static is not None:
         if isinstance(static, xr.DataArray):
             static = static.to_dataset(name=static.name or "elevation")
@@ -83,7 +108,7 @@ def build_datacube(
             )
 
     parts = [_ensure_grid_coords(p) for p in parts]
-    ds = xr.merge(parts, compat="override", join="exact")
+    ds = xr.merge(parts, compat="override", join="outer")
     ds = _ensure_grid_coords(ds)
 
     for spec in schema.SURFACE_VARS + schema.SATELLITE_VARS:

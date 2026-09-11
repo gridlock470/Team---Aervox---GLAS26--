@@ -54,7 +54,11 @@ def _imdaa_single() -> xr.Dataset:
             "VGRD_10m": (dims, _field(*shp, base=-3.0, scale=6.0)),
             "PRMSL_msl": (dims, _field(*shp, base=100_500.0, scale=200.0)),
             "PWAT_eatm": (dims, _field(*shp, base=30.0, scale=20.0)),
-            "APCP_sfc": (dims, np.full(shp, 2.0, dtype="float32")),
+            # cumulative accumulation, steady 1 mm/h: 1, 2, 3, 4 mm
+            "APCP_sfc": (
+                dims,
+                np.cumsum(np.ones(shp, dtype="float32"), axis=0),
+            ),
             "CAPE_sfc": (dims, _field(*shp, base=200.0, scale=1500.0)),
             "CIN_sfc": (dims, _field(*shp, base=-80.0, scale=60.0)),
         },
@@ -86,8 +90,8 @@ def test_load_imdaa_single_level(tmp_path):
         assert ds[name].dims == ("time", "lat", "lon")
     np.testing.assert_allclose(ds["lat"].values, config.GRID_LAT, atol=1e-6)
     np.testing.assert_allclose(ds["lon"].values, config.GRID_LON, atol=1e-6)
-    # APCP 2 mm over a 1 h window -> 2 mm/h
-    np.testing.assert_allclose(ds["precip"].values, 2.0, atol=1e-3)
+    # APCP is a cumulative accumulation (1,2,3,4 mm) -> steady 1 mm/h rate
+    np.testing.assert_allclose(ds["precip"].values, 1.0, atol=1e-3)
     assert float(ds["t2m"].mean()) > 250.0
 
 

@@ -10,6 +10,17 @@ Conventions
 * ``scale`` / ``offset`` convert the raw stored value to the schema unit.
 * ``accumulated`` marks precip stored as an accumulation (needs a time
   derivative / division by the accumulation window to become ``mm h-1``).
+* ``cumulative`` (only meaningful with ``accumulated``) marks the accumulation
+  as a *running total since forecast-cycle initialisation that resets to ~0 at
+  the start of every cycle* -- the loader must difference along time and detect
+  the resets. ``cumulative=False`` means each stored value is already the
+  precip that fell during the single step ending at that timestamp.
+* ``accum_window_h`` is the nominal length in hours of the *first* step of a
+  cycle (used to turn its depth into a rate); later steps use the real spacing
+  of the ``time`` coordinate.
+
+Real IMDAA/MERA files are not available yet, so the accumulation convention of
+each product is an explicit, testable assumption documented at its entry.
 """
 
 from __future__ import annotations
@@ -38,6 +49,8 @@ class VarMap:
     offset: float = 0.0
     raw_units: str = ""
     accumulated: bool = False
+    cumulative: bool = False
+    accum_window_h: float = 1.0
     notes: str = ""
     aliases: tuple[str, ...] = field(default_factory=tuple)
 
@@ -49,8 +62,13 @@ class VarMap:
 # ---------------------------------------------------------------------------
 # IMDAA (NCMRWF regional reanalysis) -- single level
 # ---------------------------------------------------------------------------
-# IMDAA GRIB/NetCDF short names. t2m/u10/v10 already SI. APCP is an accumulated
-# precip depth in kg m-2 (== mm); the loader divides by the accumulation hours.
+# IMDAA GRIB/NetCDF short names. t2m/u10/v10 already SI.
+#
+# ASSUMPTION (APCP_sfc): IMDAA single-level APCP is a large-scale + convective
+# precipitation *accumulation in kg m-2 (== mm) since the start of each forecast
+# cycle*, output hourly and reset to 0 at every cycle. So it is a CUMULATIVE
+# accumulation: difference along time, restart the difference at each reset
+# (value drop), and divide the first step of each cycle by 1 h.
 IMDAA_SINGLE_LEVEL: dict[str, VarMap] = {
     "TMP_2m": VarMap("t2m", raw_units="K", aliases=("2t", "t2m", "TMP_GDS0_HTGL")),
     "UGRD_10m": VarMap("u10", raw_units="m s-1", aliases=("10u", "u10", "UGRD_GDS0_HTGL")),
@@ -63,7 +81,9 @@ IMDAA_SINGLE_LEVEL: dict[str, VarMap] = {
         "precip",
         raw_units="kg m-2",
         accumulated=True,
-        notes="accumulated depth; divide by accumulation window -> mm h-1",
+        cumulative=True,
+        accum_window_h=1.0,
+        notes="cumulative accumulation since cycle init (hourly, resets each cycle)",
         aliases=("tp", "APCP_GDS0_SFC", "apcp"),
     ),
     "CAPE_sfc": VarMap("cape", raw_units="J kg-1", aliases=("cape", "CAPE_GDS0_SFC")),
@@ -88,17 +108,33 @@ IMDAA_PRESSURE_LEVEL: dict[str, VarMap] = {
 }
 
 # ---------------------------------------------------------------------------
-# MERA (Met Eireann / here: generic reanalysis precip product used as backup)
+# MERA (secondary reanalysis precip product, ECMWF-style output)
 # ---------------------------------------------------------------------------
+# ASSUMPTIONS:
+#   * PRATE -- an instantaneous precipitation *rate* (kg m-2 s-1); not
+#     accumulated, just * 3600 -> mm h-1.
+#   * APCP / tp -- a CUMULATIVE accumulation since forecast-cycle init that
+#     resets each cycle (the ECMWF convention). Difference along time, restart
+#     at each reset, divide the first step by 1 h. ``tp`` is stored in metres.
 MERA_VARS: dict[str, VarMap] = {
-    "PRATE": VarMap("precip", scale=3600.0, raw_units="kg m-2 s-1", notes="rate -> mm h-1"),
+    "PRATE": VarMap("precip", scale=3600.0, raw_units="kg m-2 s-1", notes="instantaneous rate"),
     "APCP": VarMap(
         "precip",
         raw_units="kg m-2",
         accumulated=True,
-        notes="accumulated depth -> divide by window",
+        cumulative=True,
+        accum_window_h=1.0,
+        notes="cumulative accumulation since cycle init; resets each cycle",
     ),
-    "tp": VarMap("precip", scale=1000.0, raw_units="m", accumulated=True, notes="m -> mm"),
+    "tp": VarMap(
+        "precip",
+        scale=1000.0,
+        raw_units="m",
+        accumulated=True,
+        cumulative=True,
+        accum_window_h=1.0,
+        notes="m -> mm; cumulative accumulation since cycle init; resets each cycle",
+    ),
 }
 
 # ---------------------------------------------------------------------------
