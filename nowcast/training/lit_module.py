@@ -27,12 +27,16 @@ class LitNowcast(L.LightningModule):
         max_epochs: int = 20,
         bce_weight: float = 1.0,
         dice_weight: float = 0.5,
+        focal_weight: float = 0.0,
     ) -> None:
         super().__init__()
         self.save_hyperparameters()
         self.model = MultiTaskNowcastNet(backbone_kwargs=backbone_kwargs)
         self.criterion = MultiTaskLoss(
-            hazard_weights=hazard_weights, bce=bce_weight, dice=dice_weight
+            hazard_weights=hazard_weights,
+            bce=bce_weight,
+            dice=dice_weight,
+            focal=focal_weight,
         )
         self.metrics = NowcastMetrics()
 

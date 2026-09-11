@@ -1,8 +1,13 @@
 # Small ConvLSTM nowcasting config -- CPU-friendly smoke / baseline run.
 data:
-  source: synthetic
+  source: synthetic          # "real" -> set features/labels/terrain paths below
   n_hours: 56
   batch_size: 4
+  # For source != synthetic:
+  # features: data/processed/features.zarr
+  # labels: data/processed/labels.nc
+  # terrain: data/processed/dem_routing.zarr   # default: config.DEM_ROUTING_PATH
+  # norm_stats_path: data/processed/norm_stats.json
 
 model:
   backbone:
@@ -13,6 +18,7 @@ model:
   weight_decay: 1.0e-4
   bce_weight: 1.0
   dice_weight: 0.5
+  focal_weight: 0.0          # > 0 adds a focal-loss term for rare-class emphasis
   hazard_weights:
     thunderstorm: 1.0
     cloudburst: 1.0

@@ -7,7 +7,7 @@ from torch import nn
 
 from nowcast import config
 from nowcast.models.backbone import SpatiotemporalBackbone
-from nowcast.models.heads import FlashFloodHead, HazardHead
+from nowcast.models.heads import N_TERRAIN_PLANES, FlashFloodHead, HazardHead
 
 
 class MultiTaskNowcastNet(nn.Module):
@@ -21,14 +21,19 @@ class MultiTaskNowcastNet(nn.Module):
     consumes a ``(B, n_terrain, H, W)`` terrain tensor.
     """
 
-    def __init__(self, backbone_kwargs: dict | None = None) -> None:
+    def __init__(
+        self,
+        backbone_kwargs: dict | None = None,
+        n_terrain: int = N_TERRAIN_PLANES,
+    ) -> None:
         super().__init__()
         self.backbone = SpatiotemporalBackbone(**(backbone_kwargs or {}))
+        self.n_terrain = n_terrain
         features = self.backbone.out_features
         heads: dict[str, nn.Module] = {}
         for hazard in config.HAZARDS:
             if hazard == "flash_flood":
-                heads[hazard] = FlashFloodHead(features)
+                heads[hazard] = FlashFloodHead(features, n_terrain=n_terrain)
             else:
                 heads[hazard] = HazardHead(features)
         self.heads = nn.ModuleDict(heads)

@@ -5,10 +5,23 @@ from __future__ import annotations
 import torch
 from torch import nn
 
+from nowcast import config
+
 
 def _flatten(value: object) -> torch.Tensor:
     tensor = value if torch.is_tensor(value) else torch.as_tensor(value)
     return tensor.detach().reshape(-1).float()
+
+
+def _hard_targets(value: object, target_threshold: float | None) -> torch.Tensor:
+    """Binarise probabilistic targets -- temperature scaling and reliability
+    diagrams calibrate against hard labels (Guo et al., 2017)."""
+    threshold = (
+        config.LABEL_OCCURRENCE_THRESHOLD
+        if target_threshold is None
+        else target_threshold
+    )
+    return (_flatten(value) >= threshold).float()
 
 
 class TemperatureScaler(nn.Module):
@@ -37,10 +50,11 @@ class TemperatureScaler(nn.Module):
         targets: torch.Tensor,
         lr: float = 0.1,
         max_iter: int = 100,
+        target_threshold: float | None = None,
     ) -> TemperatureScaler:
-        """Optimise ``T`` to minimise BCE on ``(logits, targets)``; returns ``self``."""
+        """Optimise ``T`` to minimise BCE against the hard-binarised target."""
         flat_logits = _flatten(logits)
-        flat_targets = _flatten(targets)
+        flat_targets = _hard_targets(targets, target_threshold)
         optimizer = torch.optim.LBFGS([self.log_temperature], lr=lr, max_iter=max_iter)
         loss_fn = nn.BCEWithLogitsLoss()
 
@@ -75,11 +89,18 @@ def _bin_mask(prob: torch.Tensor, low: torch.Tensor, high: torch.Tensor, last: b
 
 
 def reliability_curve(
-    probs: torch.Tensor, targets: torch.Tensor, n_bins: int = 10
+    probs: torch.Tensor,
+    targets: torch.Tensor,
+    n_bins: int = 10,
+    *,
+    target_threshold: float | None = None,
 ) -> dict[str, list[float]]:
-    """Binned confidence vs. empirical frequency for a reliability diagram."""
+    """Binned confidence vs. empirical frequency for a reliability diagram.
+
+    The target is hard-binarised so ``accuracy`` is a genuine event frequency.
+    """
     prob = _flatten(probs)
-    target = _flatten(targets)
+    target = _hard_targets(targets, target_threshold)
     edges = _bin_edges(n_bins)
     centers, accuracy, confidence, counts = [], [], [], []
     for i in range(n_bins):
@@ -103,11 +124,15 @@ def reliability_curve(
 
 
 def expected_calibration_error(
-    probs: torch.Tensor, targets: torch.Tensor, n_bins: int = 10
+    probs: torch.Tensor,
+    targets: torch.Tensor,
+    n_bins: int = 10,
+    *,
+    target_threshold: float | None = None,
 ) -> float:
-    """Weighted mean gap between confidence and accuracy across bins."""
+    """Weighted mean gap between confidence and accuracy across bins (hard target)."""
     prob = _flatten(probs)
-    target = _flatten(targets)
+    target = _hard_targets(targets, target_threshold)
     edges = _bin_edges(n_bins)
     total = prob.numel()
     if total == 0:

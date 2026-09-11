@@ -52,9 +52,12 @@ def focal_loss(
 
 
 class MultiTaskLoss(nn.Module):
-    """Weighted BCE + Dice, summed over hazards then averaged.
+    """Weighted BCE + Dice (+ optional focal), summed over hazards then averaged.
 
-    Accepts either a head-output dict (hazard -> ``(B, L, H, W)``) or a stacked
+    BCE and Dice train against the *soft* probabilistic target (per the label
+    contract). ``focal`` is off by default; set ``focal > 0`` to add a
+    :func:`focal_loss` term for rare-class emphasis. Accepts either a head-output
+    dict (hazard -> ``(B, L, H, W)``) or a stacked
     ``(B, N_HAZARDS, N_LEADS, H, W)`` tensor for both predictions and targets.
     """
 
@@ -63,10 +66,16 @@ class MultiTaskLoss(nn.Module):
         hazard_weights: dict[str, float] | None = None,
         bce: float = 1.0,
         dice: float = 0.5,
+        focal: float = 0.0,
+        focal_alpha: float = 0.25,
+        focal_gamma: float = 2.0,
     ) -> None:
         super().__init__()
         self.bce = bce
         self.dice = dice
+        self.focal = focal
+        self.focal_alpha = focal_alpha
+        self.focal_gamma = focal_gamma
         self.hazard_weights = hazard_weights or {hazard: 1.0 for hazard in config.HAZARDS}
 
     def forward(
@@ -86,5 +95,9 @@ class MultiTaskLoss(nn.Module):
             mask_i = mask[:, i] if mask is not None else None
             term = self.bce * masked_bce_with_logits(logit_i, target_i, mask_i)
             term = term + self.dice * dice_loss(logit_i, target_i)
+            if self.focal > 0.0:
+                term = term + self.focal * focal_loss(
+                    logit_i, target_i, self.focal_alpha, self.focal_gamma
+                )
             parts.append(weight * term)
         return torch.stack(parts).sum() / len(parts)

@@ -71,12 +71,39 @@ def test_multitask_loss_accepts_dict_and_tensor():
     assert loss_fn(logits, targets).ndim == 0
 
 
+def test_multitask_loss_focal_term_is_optional():
+    logits, targets = _logits_targets()
+    base = MultiTaskLoss(focal=0.0)(logits, targets)
+    with_focal = MultiTaskLoss(focal=1.0)(logits, targets)
+    assert not torch.isclose(base, with_focal)
+    assert torch.isfinite(with_focal)
+
+
 def test_csi_pod_far_in_unit_interval():
     probs, targets = _logits_targets(1)
     probs = probs.sigmoid()
     for metric in (csi, pod, far):
         value = metric(probs, targets, 0.5)
-        assert 0.0 <= value <= 1.0
+        assert math.isnan(value) or 0.0 <= value <= 1.0
+
+
+def test_metrics_binarise_target_at_config_threshold():
+    # Soft target: a single peak at 0.6 -> one positive at threshold 0.5.
+    targets = torch.zeros(_SHAPE)
+    targets[0, 0, 0, 4, 4] = 0.6
+    preds = torch.zeros(_SHAPE)
+    preds[0, 0, 0, 4, 4] = 0.9
+    assert config.LABEL_OCCURRENCE_THRESHOLD == 0.5
+    assert csi(preds, targets) == 1.0  # the one 0.6 cell counts as observed
+
+
+def test_degenerate_metrics_return_nan_not_zero():
+    preds = torch.full(_SHAPE, 0.1)
+    targets = torch.zeros(_SHAPE)  # no positives anywhere
+    assert math.isnan(csi(preds, targets))
+    assert math.isnan(pod(preds, targets))
+    assert math.isnan(far(preds, targets))
+    assert math.isnan(pr_auc(preds, targets))
 
 
 def test_perfect_prediction_metric_extremes():
@@ -86,14 +113,23 @@ def test_perfect_prediction_metric_extremes():
     assert far(targets, targets, 0.5) == 0.0
 
 
-def test_nowcast_metrics_bundle_all_finite():
+def test_nowcast_metrics_bundle_headline_finite_and_reports_counts():
     probs, targets = _logits_targets(2)
     scores = NowcastMetrics().compute(probs.sigmoid(), targets)
-    assert {"csi", "pod", "far", "pr_auc", "ece"} <= set(scores)
-    assert all(math.isfinite(value) for value in scores.values())
+    for key in ("csi", "pod", "far", "pr_auc", "ece"):
+        assert math.isfinite(scores[key])
     assert any(key.startswith("csi/") for key in scores)
-    assert math.isfinite(pr_auc(probs.sigmoid(), (targets > 0.5).float()))
-    assert math.isfinite(calibration_error(probs.sigmoid(), targets))
+    assert any(key.startswith("n_pos/") for key in scores)
+    total_pos = sum(v for k, v in scores.items() if k.startswith("n_pos/"))
+    assert total_pos > 0
+
+
+def test_nowcast_metrics_nan_aware_on_degenerate_split():
+    probs = torch.full(_SHAPE, 0.1)
+    targets = torch.zeros(_SHAPE)
+    scores = NowcastMetrics().compute(probs, targets)
+    assert math.isnan(scores["csi"])
+    assert all(v == 0.0 for k, v in scores.items() if k.startswith("n_pos/"))
 
 
 def test_configure_optimizers_is_adamw_and_cosine():

@@ -8,6 +8,7 @@ import torch
 from nowcast import config, schema
 from nowcast.models.backbone import SpatiotemporalBackbone
 from nowcast.models.blocks import Conv3dBlock, ConvLSTMBlock, ConvLSTMCell, num_groups
+from nowcast.models.heads import N_TERRAIN_PLANES
 from nowcast.models.multitask import MultiTaskNowcastNet
 from nowcast.models.transformer import SpatiotemporalTransformerBackbone
 from nowcast.testing import synthetic
@@ -90,8 +91,9 @@ def test_validate_sample_accepts_model_output():
 
 def test_flash_flood_head_consumes_terrain():
     net = MultiTaskNowcastNet(backbone_kwargs=_TINY).eval()
+    assert net.n_terrain == N_TERRAIN_PLANES == 2
     x, _ = _batch()
-    terrain = torch.randn(2, len(schema.FLASH_FLOOD_EXTRA_CHANNELS), *config.GRID_SHAPE)
+    terrain = torch.randn(2, N_TERRAIN_PLANES, *config.GRID_SHAPE)
     with torch.no_grad():
         with_terrain = net(x, terrain)["flash_flood"]
         zero_terrain = net(x, torch.zeros_like(terrain))["flash_flood"]

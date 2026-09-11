@@ -7,6 +7,13 @@ from torch import nn
 
 from nowcast import schema
 
+# Number of continuous terrain planes the flash-flood head consumes, produced by
+# :func:`nowcast.data.transforms.transform_terrain` (standardised log1p flow
+# accumulation + standardised HAND). This is deliberately *not*
+# ``len(schema.FLASH_FLOOD_EXTRA_CHANNELS)``: the categorical D8 ``flow_direction``
+# pointer in that schema tuple is a datacube contract entry, not a model input.
+N_TERRAIN_PLANES: int = 2
+
 
 class HazardHead(nn.Module):
     """Convolutional head: features ``(B, F, H, W)`` -> logits ``(B, n_leads, H, W)``."""
@@ -31,9 +38,10 @@ class HazardHead(nn.Module):
 class FlashFloodHead(nn.Module):
     """Flash-flood head: consumes shared features *and* routed-terrain context.
 
-    ``terrain`` is a ``(B, n_terrain, H, W)`` tensor carrying the
-    :data:`nowcast.schema.FLASH_FLOOD_EXTRA_CHANNELS` (flow accumulation, flow
-    direction, HAND). It is encoded and concatenated with the shared features
+    ``terrain`` is a ``(B, n_terrain, H, W)`` tensor of transformed routed-terrain
+    context (see :func:`nowcast.data.transforms.transform_terrain` --
+    standardised ``log1p`` flow accumulation + standardised HAND, ``n_terrain ==
+    N_TERRAIN_PLANES``). It is encoded and concatenated with the shared features
     before the final projection to per-lead logits.
     """
 
@@ -45,9 +53,7 @@ class FlashFloodHead(nn.Module):
         dropout: float = 0.1,
     ) -> None:
         super().__init__()
-        self.n_terrain = (
-            n_terrain if n_terrain is not None else len(schema.FLASH_FLOOD_EXTRA_CHANNELS)
-        )
+        self.n_terrain = n_terrain if n_terrain is not None else N_TERRAIN_PLANES
         self.n_leads = n_leads
         self.terrain_encoder = nn.Sequential(
             nn.Conv2d(self.n_terrain, in_features, 3, padding=1),

@@ -16,6 +16,7 @@ import lightning as L
 import torch
 import yaml
 
+from nowcast import config as nc_config
 from nowcast.data.datamodule import NowcastDataModule
 from nowcast.training.lit_module import LitNowcast
 
@@ -26,11 +27,17 @@ def load_config(path: str | Path) -> dict:
         return yaml.safe_load(handle) or {}
 
 
-def build(config: dict) -> tuple[NowcastDataModule, LitNowcast]:
-    """Instantiate the datamodule and LightningModule from a config dict."""
-    data_cfg = config.get("data", {})
-    model_cfg = config.get("model", {})
-    trainer_cfg = config.get("trainer", {})
+def build(cfg: dict) -> tuple[NowcastDataModule, LitNowcast]:
+    """Instantiate the datamodule and LightningModule from a config dict.
+
+    On the non-synthetic path the datamodule is given an explicit terrain source
+    (``data.terrain`` in the config, default ``config.DEM_ROUTING_PATH`` -- the
+    feature Zarr does *not* carry ``flow_direction``) and a norm-stats path;
+    ``NowcastDataModule.setup`` computes train-range stats on first run.
+    """
+    data_cfg = cfg.get("data", {})
+    model_cfg = cfg.get("model", {})
+    trainer_cfg = cfg.get("trainer", {})
 
     if data_cfg.get("source", "synthetic") == "synthetic":
         datamodule = NowcastDataModule.from_synthetic(
@@ -41,7 +48,11 @@ def build(config: dict) -> tuple[NowcastDataModule, LitNowcast]:
         datamodule = NowcastDataModule(
             features=data_cfg["features"],
             labels=data_cfg["labels"],
+            terrain=data_cfg.get("terrain", str(nc_config.DEM_ROUTING_PATH)),
             batch_size=int(data_cfg.get("batch_size", 4)),
+            norm_stats_path=data_cfg.get(
+                "norm_stats_path", str(nc_config.NORM_STATS_PATH)
+            ),
         )
 
     module = LitNowcast(
@@ -52,6 +63,7 @@ def build(config: dict) -> tuple[NowcastDataModule, LitNowcast]:
         max_epochs=int(trainer_cfg.get("max_epochs", 20)),
         bce_weight=float(model_cfg.get("bce_weight", 1.0)),
         dice_weight=float(model_cfg.get("dice_weight", 0.5)),
+        focal_weight=float(model_cfg.get("focal_weight", 0.0)),
     )
     return datamodule, module
 
@@ -77,12 +89,12 @@ def resolve_logger(run_dir: Path):
 
 
 def make_trainer(
-    config: dict, run_dir: Path, *, fast_dev_run: bool = False
+    cfg: dict, run_dir: Path, *, fast_dev_run: bool = False
 ) -> L.Trainer:
     """Build the Lightning ``Trainer`` (mixed precision only when CUDA is present)."""
     if fast_dev_run:
         return L.Trainer(fast_dev_run=True, accelerator="cpu", logger=False)
-    trainer_cfg = config.get("trainer", {})
+    trainer_cfg = cfg.get("trainer", {})
     precision = "16-mixed" if torch.cuda.is_available() else 32
     return L.Trainer(
         max_epochs=int(trainer_cfg.get("max_epochs", 20)),
@@ -102,13 +114,13 @@ def main(argv: list[str] | None = None) -> str:
     parser.add_argument("--fast-dev-run", action="store_true")
     args = parser.parse_args(argv)
 
-    config = load_config(args.config)
+    cfg = load_config(args.config)
     run_dir: Path = args.run_dir
     run_dir.mkdir(parents=True, exist_ok=True)
     shutil.copy(args.config, run_dir / Path(args.config).name)
 
-    datamodule, module = build(config)
-    trainer = make_trainer(config, run_dir, fast_dev_run=args.fast_dev_run)
+    datamodule, module = build(cfg)
+    trainer = make_trainer(cfg, run_dir, fast_dev_run=args.fast_dev_run)
     trainer.fit(module, datamodule=datamodule)
 
     checkpoint = run_dir / "last.ckpt"
