@@ -81,3 +81,29 @@ def test_write_and_open_zarr(tmp_path):
 def test_open_zarr_missing(tmp_path):
     with pytest.raises(FileNotFoundError):
         io.open_zarr(tmp_path / "absent.zarr")
+
+
+def test_standardize_coords_keeps_ecmwf_temperature_variable():
+    """``t`` is ECMWF's short name for temperature, not a time coordinate.
+
+    Regression: the coordinate alias ``t -> time`` used to fire on data
+    variables too, so an ERA5/IMDAA pressure-level file carrying both ``t``
+    and ``valid_time`` raised "the new name 'time' conflicts".
+    """
+    ds = xr.Dataset(
+        {
+            "t": (("valid_time", "pressure_level", "latitude", "longitude"), np.zeros((1, 2, 2, 2))),
+            "r": (("valid_time", "pressure_level", "latitude", "longitude"), np.zeros((1, 2, 2, 2))),
+        },
+        coords={
+            "valid_time": [0],
+            "pressure_level": [1000.0, 850.0],
+            "latitude": [2.0, 1.0],
+            "longitude": [3.0, 4.0],
+        },
+    )
+    out = io.standardize_coords(ds)
+    assert "t" in out.data_vars, "temperature must survive standardization"
+    assert "time" in out.coords and "valid_time" not in out.coords
+    assert "level" in out.coords and "pressure_level" not in out.coords
+    assert set(out.data_vars) == {"t", "r"}

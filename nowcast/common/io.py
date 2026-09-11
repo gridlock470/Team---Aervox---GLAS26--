@@ -44,6 +44,7 @@ _VAR_ALIASES: dict[str, str] = {
     "plev": "level",
     "pressure": "level",
     "isobaricInhPa": "level",
+    "pressure_level": "level",  # ERA5 CDS NetCDF
 }
 
 
@@ -59,7 +60,11 @@ def standardize_coords(ds: xr.Dataset) -> xr.Dataset:
     """
     rename: dict[str, str] = {}
     for name in list(ds.variables):
-        if name in _COORD_ALIASES and _COORD_ALIASES[name] not in ds.variables:
+        # Coordinate aliases must only ever fire on actual coordinates/dims.
+        # Several aliases collide with legitimate data-variable names -- ECMWF
+        # calls temperature ``t``, which must not become ``time``.
+        is_coord_like = name in ds.coords or name in ds.dims
+        if is_coord_like and name in _COORD_ALIASES and _COORD_ALIASES[name] not in ds.variables:
             rename[name] = _COORD_ALIASES[name]
         elif name in _VAR_ALIASES:
             target = _VAR_ALIASES[name]
