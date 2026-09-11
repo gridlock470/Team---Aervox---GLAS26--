@@ -15,7 +15,7 @@ import numpy as np
 # Filesystem layout
 # ---------------------------------------------------------------------------
 PROJECT_ROOT: Path = Path(__file__).resolve().parents[1]
-DATA_DIR: Path = PROJECT_ROOT / "data"
+DATA_DIR: Path = PROJECT_ROOT / "DataSet"
 RAW_DIR: Path = DATA_DIR / "raw"
 INTERIM_DIR: Path = DATA_DIR / "interim"
 PROCESSED_DIR: Path = DATA_DIR / "processed"

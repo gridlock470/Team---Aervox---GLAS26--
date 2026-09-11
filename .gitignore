@@ -18,6 +18,7 @@ lightning_logs/
 wandb/
 
 # Data (never commit raw or processed datasets) — repo-root only, not nowcast/data/
+/DataSet/
 /data/
 *.nc
 *.nc4
