@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import argparse
 import sys
+import tempfile
+import zipfile
 from pathlib import Path
 
 from nowcast import config
@@ -47,6 +49,36 @@ AREA = [
 
 ALL_DAYS = [f"{d:02d}" for d in range(1, 32)]
 ALL_TIMES = [f"{h:02d}:00" for h in range(24)]
+
+
+def _normalise_download(tmp: Path, dest: Path) -> None:
+    """Move ``tmp`` to ``dest``, unwrapping the CDS zip envelope if present.
+
+    Single-level requests that mix instantaneous and accumulated variables
+    (total_precipitation is accumulated) come back as a zip holding one
+    NetCDF per stream. Merge them into the single file the ingest path
+    expects. Pressure-level requests arrive as plain NetCDF4.
+    """
+    if not zipfile.is_zipfile(tmp):
+        tmp.replace(dest)
+        return
+
+    import xarray as xr
+
+    with zipfile.ZipFile(tmp) as z, tempfile.TemporaryDirectory() as td:
+        parts = []
+        for name in z.namelist():
+            if not name.endswith(".nc"):
+                continue
+            member = z.extract(name, td)
+            with xr.open_dataset(member, engine="h5netcdf") as d:
+                parts.append(d.load())
+        if not parts:
+            raise RuntimeError(f"no .nc members inside {tmp.name}")
+        merged = xr.merge(parts, compat="no_conflicts")
+    merged.to_netcdf(dest, engine="h5netcdf")
+    merged.close()
+    tmp.unlink(missing_ok=True)
 
 
 def build_request(dataset: str, year: int, month: int, days, times) -> dict:
@@ -110,7 +142,7 @@ def main() -> int:
         try:
             print(f"[{i}/{len(jobs)}] requesting {dest.name} ...", flush=True)
             client.retrieve(ds, build_request(ds, y, m, days, times), str(tmp))
-            tmp.replace(dest)
+            _normalise_download(tmp, dest)
             print(f"[{i}/{len(jobs)}] {dest.name} OK {dest.stat().st_size/1e6:.1f} MB", flush=True)
             done += 1
         except KeyboardInterrupt:
