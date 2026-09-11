@@ -3,15 +3,29 @@
 from __future__ import annotations
 
 import shutil
+import subprocess
 import tempfile
 from pathlib import Path
 
 import pytest
 
-from nowcast.ingest.run_wget import run_wget_scripts
+from nowcast.ingest.run_wget import _resolve_shell, run_wget_scripts
 
-_BASH = shutil.which("bash")
-pytestmark = pytest.mark.skipif(_BASH is None, reason="bash not available on PATH")
+
+def _find_functional_bash() -> str | None:
+    candidate = _resolve_shell("bash")
+    if candidate:
+        try:
+            res = subprocess.run([candidate, "-c", "exit 0"], capture_output=True, timeout=5)
+            if res.returncode == 0:
+                return candidate
+        except Exception:
+            pass
+    return None
+
+
+_BASH = _find_functional_bash()
+pytestmark = pytest.mark.skipif(_BASH is None, reason="functional bash not available on PATH")
 
 
 @pytest.fixture

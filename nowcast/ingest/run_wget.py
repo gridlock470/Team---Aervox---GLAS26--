@@ -9,6 +9,7 @@ their sizes.
 from __future__ import annotations
 
 import logging
+import shutil
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -18,6 +19,27 @@ __all__ = ["ScriptResult", "run_wget_scripts"]
 _LOG = logging.getLogger(__name__)
 
 _SCRIPT_GLOBS = ("*.sh", "*.bash", "wget*.txt")
+
+
+def _resolve_shell(shell: str = "bash") -> str:
+    """Resolve a functional shell executable across platforms.
+
+    On Windows:
+    1. Check for Git Bash (e.g. C:\\Program Files\\Git\\bin\\bash.exe).
+    2. Avoid the WindowsApps stub which emits REGDB_E_CLASSNOTREG when WSL is not active.
+    """
+    if shell == "bash":
+        for candidate in (
+            Path(r"C:\Program Files\Git\bin\bash.exe"),
+            Path(r"C:\Program Files\Git\usr\bin\bash.exe"),
+            Path(r"C:\Program Files (x86)\Git\bin\bash.exe"),
+        ):
+            if candidate.is_file():
+                return str(candidate)
+        found = shutil.which("bash")
+        if found and "WindowsApps" not in found:
+            return found
+    return shell
 
 
 @dataclass
@@ -88,13 +110,19 @@ def run_wget_scripts(
         _LOG.warning("no download scripts (%s) in %s", ", ".join(_SCRIPT_GLOBS), directory)
         return []
 
+    resolved_shell = _resolve_shell(shell)
     results: list[ScriptResult] = []
     for script in scripts:
         before = _snapshot(directory)
         _LOG.info("running download script %s", script.name)
         try:
+            cmd = (
+                [resolved_shell, script.name]
+                if Path(directory) == script.parent
+                else [resolved_shell, script.as_posix()]
+            )
             proc = subprocess.run(
-                [shell, str(script)],
+                cmd,
                 cwd=str(directory),
                 capture_output=True,
                 text=True,
@@ -103,7 +131,7 @@ def run_wget_scripts(
             )
             rc, out, err = proc.returncode, proc.stdout, proc.stderr
         except FileNotFoundError as err:
-            rc, out, err = 127, "", f"interpreter '{shell}' not found: {err}"
+            rc, out, err = 127, "", f"interpreter '{resolved_shell}' not found: {err}"
         except subprocess.TimeoutExpired as err:
             rc, out, err = 124, err.stdout or "", f"timed out after {timeout}s"
 
