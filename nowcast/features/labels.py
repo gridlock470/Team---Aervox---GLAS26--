@@ -4,7 +4,14 @@
 (``time, hazard, lead, lat, lon``) and values in ``[0, 1]``. For each hazard a
 binary occurrence field is derived from the datacube, shifted so that
 ``label(t, lead=h) == occurrence(t + h)`` for every ``h`` in
-``config.LEAD_TIMES_H``, then Gaussian-smoothed per ``(hazard, lead)`` map.
+``config.LEAD_TIMES_H``, then Gaussian-smoothed per ``(hazard, lead)`` map and
+**peak-normalised** so an isolated occurrence cell still reaches ``1.0`` (a cell
+counts as a positive occurrence when its value ``>= config.LABEL_OCCURRENCE_THRESHOLD``).
+
+The returned array carries a boolean ``label_valid`` coordinate on ``time``
+(see :func:`valid_label_times`): ``False`` where the label horizon
+``t + max(LEAD_TIMES_H)`` runs past the available data or across a time gap, so
+those timesteps are zero-padded and must not be served as training samples.
 """
 
 from __future__ import annotations
@@ -13,6 +20,7 @@ from collections import deque
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 import xarray as xr
 from scipy.ndimage import gaussian_filter
 
@@ -141,12 +149,65 @@ def _flash_flood_mask(
 
 
 def _shift_occurrence(base: np.ndarray, lead: int) -> np.ndarray:
-    """``result[t] = base[t + lead]`` with zero padding past the end."""
+    """``result[t] = base[t + lead]`` with zero padding past the end.
+
+    Timesteps whose horizon runs past the data are zero-padded here; callers
+    exclude them via :func:`valid_label_times` / the ``label_valid`` coord.
+    """
     shifted = np.zeros_like(base)
     n = base.shape[0]
     if lead < n:
         shifted[: n - lead] = base[lead:]
     return shifted
+
+
+def _peak_normaliser(sigma: float) -> float:
+    """Centre response of :func:`scipy.ndimage.gaussian_filter` to a unit impulse.
+
+    Dividing a smoothed occurrence field by this value makes an isolated event
+    cell peak at exactly ``1.0`` instead of the ~0.16 of a unit-integral kernel.
+    """
+    if sigma <= 0.0:
+        return 1.0
+    size = max(3, int(np.ceil(sigma * 8.0)) | 1)
+    impulse = np.zeros((size, size), dtype="float64")
+    impulse[size // 2, size // 2] = 1.0
+    response = float(gaussian_filter(impulse, sigma=sigma).max())
+    return response if response > 0.0 else 1.0
+
+
+def valid_label_times(
+    time_index, leads: tuple[int, ...] | None = None
+) -> xr.DataArray:
+    """Boolean mask over ``time``: ``True`` where a full label horizon exists.
+
+    A timestep ``t`` is valid when ``t + max(leads)`` is present in the series
+    *and* every hour from ``t`` to ``t + max(leads)`` is contiguous at
+    ``config.TIMESTEP`` (no gap). Consumers (the baseline pixel dataset, the
+    datamodule) must drop invalid timesteps - their labels are zero-padded, not
+    real observations, and shifting before a chronological split would otherwise
+    leak future occurrence across the split boundary.
+    """
+    leads = tuple(config.LEAD_TIMES_H) if leads is None else tuple(leads)
+    max_lead = max(leads)
+    times = pd.DatetimeIndex(np.asarray(time_index))
+    step = pd.Timedelta(config.TIMESTEP)
+    n = len(times)
+    valid = np.zeros(n, dtype=bool)
+    deltas = np.diff(times.values)
+    contiguous = deltas == np.timedelta64(step)
+    for i in range(n):
+        j = i + max_lead
+        if j >= n:
+            break
+        if contiguous[i:j].all():
+            valid[i] = True
+    return xr.DataArray(
+        valid,
+        dims=("time",),
+        coords={"time": np.asarray(time_index)},
+        name="label_valid",
+    )
 
 
 def build_labels(ds: xr.Dataset, routing: dict | None = None) -> xr.DataArray:
@@ -175,6 +236,7 @@ def build_labels(ds: xr.Dataset, routing: dict | None = None) -> xr.DataArray:
     lon = precip["lon"]
     leads = config.LEAD_TIMES_H
     sigma = float(config.LABEL_SMOOTH_SIGMA)
+    norm = _peak_normaliser(sigma)
     n_time = time.size
 
     out = np.zeros(
@@ -187,9 +249,9 @@ def build_labels(ds: xr.Dataset, routing: dict | None = None) -> xr.DataArray:
         for li, lead in enumerate(leads):
             shifted = _shift_occurrence(base, lead)
             smoothed = gaussian_filter(shifted, sigma=(0.0, sigma, sigma))
-            out[:, hi, li] = np.clip(smoothed, 0.0, 1.0)
+            out[:, hi, li] = np.clip(smoothed / norm, 0.0, 1.0)
 
-    return xr.DataArray(
+    labels = xr.DataArray(
         out,
         dims=schema.TARGET_DIMS,
         coords={
@@ -200,8 +262,13 @@ def build_labels(ds: xr.Dataset, routing: dict | None = None) -> xr.DataArray:
             "lon": lon,
         },
         name="hazard_probability",
-        attrs={"long_name": "hazard occurrence probability", "units": "1"},
+        attrs={
+            "long_name": "hazard occurrence probability (peak-normalised)",
+            "units": "1",
+            "occurrence_threshold": float(config.LABEL_OCCURRENCE_THRESHOLD),
+        },
     )
+    return labels.assign_coords(label_valid=valid_label_times(time))
 
 
 def write_labels(da: xr.DataArray, path: str | Path) -> Path:

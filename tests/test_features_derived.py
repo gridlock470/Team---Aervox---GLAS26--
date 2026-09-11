@@ -24,19 +24,30 @@ def _cube(n_hours: int = 6, seed: int = 3):
     )
 
 
+def test_iwv_prefers_tcwv_when_present():
+    cube = _cube()
+    iwv = moisture.integrated_water_vapour(cube)
+    assert set(iwv.dims) == {"time", "lat", "lon"}
+    assert iwv.dtype == np.float32
+    assert np.isfinite(iwv.values).all()
+    assert float(iwv.min()) >= 0.0
+    np.testing.assert_allclose(iwv.values, cube["tcwv"].values, rtol=1e-5)
+
+
 @metpy_only
-def test_iwv_shape_and_non_negative():
-    iwv = moisture.integrated_water_vapour(_cube())
+def test_iwv_pressure_level_integral_fallback():
+    cube = _cube().drop_vars("tcwv")
+    iwv = moisture.integrated_water_vapour(cube)
     assert set(iwv.dims) == {"time", "lat", "lon"}
     assert iwv.dtype == np.float32
     assert np.isfinite(iwv.values).all()
     assert float(iwv.min()) >= 0.0
 
 
-def test_iwv_falls_back_to_tcwv_without_levels():
-    cube = _cube().drop_dims("level")
-    iwv = moisture.integrated_water_vapour(cube)
-    np.testing.assert_allclose(iwv.values, cube["tcwv"].values, rtol=1e-5)
+def test_iwv_raises_without_tcwv_or_levels():
+    cube = _cube().drop_vars("tcwv").drop_dims("level")
+    with pytest.raises(KeyError):
+        moisture.integrated_water_vapour(cube)
 
 
 def test_iwv_tendency_first_step_backfilled():

@@ -11,9 +11,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import numpy as np
+import pandas as pd
 import xarray as xr
 
 from nowcast import config, schema
+from nowcast.features.labels import valid_label_times
 
 
 @dataclass
@@ -60,17 +62,31 @@ def make_pixel_dataset(
     labels_da: xr.DataArray,
     n_per_time: int | None = None,
     seed: int = config.RANDOM_SEED,
+    *,
+    drop_label_horizon: bool = True,
 ) -> PixelDataset:
     """Sample pixels from every timestep into a flat table.
 
     ``n_per_time`` pixels are drawn (without replacement) per timestep; ``None``
     keeps every pixel. Rows with any non-finite feature or target are dropped.
+
+    When ``drop_label_horizon`` is true (the default) timesteps whose label
+    horizon runs past the end of *this* dataset or across a time gap are
+    excluded - their labels are zero-padded, not observed. Because the check
+    runs on the ``time`` coord passed in, a chronological split that slices
+    first (see :func:`split_by_date_range`) automatically drops the last
+    ``max(LEAD_TIMES_H)`` hours of each split, removing cross-boundary leakage.
     """
     feature_names = list(schema.FEATURE_CHANNELS)
     rng = np.random.default_rng(seed)
 
     times = np.asarray(features_ds["time"].values)
     labels_da = labels_da.transpose("time", "hazard", "lead", "lat", "lon")
+
+    if drop_label_horizon and times.size:
+        valid = np.asarray(valid_label_times(features_ds["time"]).values, dtype=bool)
+    else:
+        valid = np.ones(times.size, dtype=bool)
     n_lat = features_ds.sizes["lat"]
     n_lon = features_ds.sizes["lon"]
     n_pix = n_lat * n_lon
@@ -90,13 +106,14 @@ def make_pixel_dataset(
 
     n_targets = schema.N_HAZARDS * schema.N_LEADS
     n_feat = len(feature_names)
-    if times.size == 0:
+    keep_ti = np.flatnonzero(valid)
+    if keep_ti.size == 0:
         return PixelDataset(
             np.empty((0, n_feat), dtype="float32"),
             np.empty((0, n_targets), dtype="float32"),
             feature_names,
             target_names(),
-            np.asarray(times),
+            np.asarray(times[:0]),
         )
     y_all = np.asarray(labels_da.values, dtype="float64").reshape(
         times.size, n_targets, n_pix
@@ -105,7 +122,7 @@ def make_pixel_dataset(
     x_parts: list[np.ndarray] = []
     y_parts: list[np.ndarray] = []
     t_parts: list[np.ndarray] = []
-    for ti in range(times.size):
+    for ti in keep_ti:
         if n_per_time is None or n_per_time >= n_pix:
             idx = np.arange(n_pix)
         else:
@@ -132,19 +149,37 @@ def make_pixel_dataset(
     )
 
 
-def split_by_year(
+def _in_date_range(time_coord: xr.DataArray, date_range: tuple[str, str]) -> np.ndarray:
+    """Boolean mask for timestamps inside ``date_range`` (both ends inclusive)."""
+    t = np.asarray(time_coord.values, dtype="datetime64[ns]")
+    start = np.datetime64(pd.Timestamp(date_range[0]), "ns")
+    # inclusive end-of-day: exclusive upper bound is the day after the end date
+    end_excl = np.datetime64(pd.Timestamp(date_range[1]).normalize(), "ns") + np.timedelta64(
+        1, "D"
+    )
+    return (t >= start) & (t < end_excl)
+
+
+def split_by_date_range(
     features_ds: xr.Dataset,
     labels_da: xr.DataArray,
     *,
-    train_years: tuple[int, ...] = config.TRAIN_YEARS,
-    val_years: tuple[int, ...] = config.VAL_YEARS,
+    train_range: tuple[str, str] = config.TRAIN_DATE_RANGE,
+    val_range: tuple[str, str] = config.VAL_DATE_RANGE,
     n_per_time: int | None = None,
     seed: int = config.RANDOM_SEED,
 ) -> tuple[PixelDataset, PixelDataset]:
-    """Build ``(train, val)`` pixel datasets by calendar-year membership."""
-    years = np.asarray(features_ds["time"].dt.year.values)
-    train_mask = np.isin(years, np.asarray(train_years))
-    val_mask = np.isin(years, np.asarray(val_years))
+    """Build disjoint ``(train, val)`` pixel datasets by chronological date range.
+
+    Selection is on the ``time`` coordinate (both ends inclusive). ``config``
+    guarantees ``TRAIN_DATE_RANGE`` and ``VAL_DATE_RANGE`` are disjoint; each
+    split is sliced before :func:`make_pixel_dataset` so the label-horizon drop
+    also prevents occurrence leaking across the split boundary.
+    """
+    train_mask = _in_date_range(features_ds["time"], train_range)
+    val_mask = _in_date_range(features_ds["time"], val_range)
+    if bool(np.any(train_mask & val_mask)):
+        raise ValueError("train_range and val_range overlap on the time coord")
 
     train = make_pixel_dataset(
         features_ds.isel(time=train_mask),

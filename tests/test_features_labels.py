@@ -3,9 +3,14 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 
 from nowcast import config, schema
-from nowcast.features.labels import _upstream_accumulate, build_labels
+from nowcast.features.labels import (
+    _upstream_accumulate,
+    build_labels,
+    valid_label_times,
+)
 from nowcast.testing import synthetic
 
 
@@ -25,18 +30,61 @@ def test_dims_coords_and_unit_range():
     assert labels.sizes["time"] == 8
 
 
-def test_heavy_rain_cell_makes_positive_cloudburst_label_at_matching_lead():
-    cube = _cube(n_hours=10)
+def test_single_heavy_rain_cell_peak_normalises_to_one():
+    # F1: an ISOLATED occurrence cell must reach 1.0, not the ~0.16 of a
+    # unit-integral Gaussian kernel.
+    cube = _cube(n_hours=12)
     precip = np.zeros_like(cube["precip"].values)
-    precip[5, 3:8, 3:8] = 120.0  # well above the cloudburst rate threshold
+    precip[4, 5, 5] = 120.0  # one cell, one timestep
+    cube["precip"] = (("time", "lat", "lon"), precip)
+
+    labels = build_labels(cube)
+    cloudburst = labels.sel(hazard="cloudburst")
+    assert float(cloudburst.max()) == pytest.approx(1.0, abs=1e-4)
+    # the peak sits at the occurrence cell, at the lead that maps t->4
+    lead = config.LEAD_TIMES_H.index(2)
+    assert float(cloudburst.isel(time=2, lead=lead, lat=5, lon=5)) == pytest.approx(
+        1.0, abs=1e-4
+    )
+
+
+def test_heavy_rain_block_makes_positive_cloudburst_label_at_matching_lead():
+    cube = _cube(n_hours=12)
+    precip = np.zeros_like(cube["precip"].values)
+    precip[5, 3:8, 3:8] = 120.0
     cube["precip"] = (("time", "lat", "lon"), precip)
 
     labels = build_labels(cube)
     hazard = config.HAZARDS.index("cloudburst")
     lead = config.LEAD_TIMES_H.index(2)  # occurrence at t=5 shows at t=3, lead=2
 
-    assert float(labels.isel(time=3, hazard=hazard, lead=lead, lat=5, lon=5)) > 0.0
+    positive = float(labels.isel(time=3, hazard=hazard, lead=lead, lat=5, lon=5))
+    assert positive >= config.LABEL_OCCURRENCE_THRESHOLD
     assert float(labels.isel(time=0, hazard=hazard, lead=0, lat=0, lon=0)) == 0.0
+
+
+def test_label_valid_coord_marks_horizon_and_matches_helper():
+    labels = build_labels(_cube(n_hours=12))
+    assert "label_valid" in labels.coords
+    valid = labels["label_valid"].values.astype(bool)
+    max_lead = max(config.LEAD_TIMES_H)
+    # last max_lead contiguous hours cannot have a full horizon
+    assert not valid[-max_lead:].any()
+    assert valid[: 12 - max_lead].all()
+    np.testing.assert_array_equal(
+        valid, valid_label_times(labels["time"]).values.astype(bool)
+    )
+
+
+def test_valid_label_times_flags_time_gap():
+    import pandas as pd
+
+    times = list(pd.date_range("2018-05-02", periods=6, freq="1h")) + list(
+        pd.date_range("2018-06-01", periods=6, freq="1h")
+    )
+    valid = valid_label_times(np.array(times, dtype="datetime64[ns]")).values
+    # nothing before the gap has a full 6 h contiguous horizon
+    assert not valid[:6].any()
 
 
 def test_upstream_accumulate_sums_the_chain():

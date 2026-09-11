@@ -15,11 +15,12 @@ from typing import Any
 
 import numpy as np
 
-from nowcast.baseline.dataset import make_pixel_dataset, split_by_year
+from nowcast import config
+from nowcast.baseline.dataset import make_pixel_dataset, split_by_date_range
 from nowcast.features.assemble import open_features
 from nowcast.features.labels import open_labels
 
-_BIN = 0.5
+_BIN = float(config.LABEL_OCCURRENCE_THRESHOLD)
 _N_BINS = 10
 
 
@@ -86,17 +87,33 @@ def evaluate(
     labels_path: str | Path,
     *,
     plot: bool = False,
+    no_split: bool = False,
 ) -> dict[str, Any]:
-    """Return ``{"targets": {target: metrics}}`` and write ``metrics.json``."""
+    """Return ``{"targets": {target: metrics}}`` and write ``metrics.json``.
+
+    Evaluates on ``config.VAL_DATE_RANGE`` by default; an empty slice raises.
+    Pass ``no_split=True`` to score against the whole dataset (demo cubes).
+    """
     model_dir = Path(model_dir)
     manifest = json.loads((model_dir / "manifest.json").read_text())
 
     features = open_features(features_path)
     labels = open_labels(labels_path)
 
-    _, val_ds = split_by_year(features, labels)
-    if val_ds.X.shape[0] == 0:
+    if no_split:
         val_ds = make_pixel_dataset(features, labels)
+        if val_ds.X.shape[0] == 0:
+            raise ValueError(
+                "no rows after the label-horizon drop; dataset is shorter than "
+                f"max(LEAD_TIMES_H)={max(config.LEAD_TIMES_H)} h"
+            )
+    else:
+        _, val_ds = split_by_date_range(features, labels)
+        if val_ds.X.shape[0] == 0:
+            raise ValueError(
+                f"no rows in VAL_DATE_RANGE={config.VAL_DATE_RANGE} for this "
+                "dataset; pass --no-split (no_split=True) to evaluate on everything"
+            )
 
     results: dict[str, Any] = {}
     for ti, target in enumerate(manifest["target_names"]):
@@ -157,10 +174,19 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--features", required=True)
     parser.add_argument("--labels", required=True)
     parser.add_argument("--plot", action="store_true")
+    parser.add_argument(
+        "--no-split",
+        action="store_true",
+        help="evaluate on the whole dataset instead of config.VAL_DATE_RANGE",
+    )
     args = parser.parse_args(argv)
 
     metrics = evaluate(
-        args.model_dir, args.features, args.labels, plot=args.plot
+        args.model_dir,
+        args.features,
+        args.labels,
+        plot=args.plot,
+        no_split=args.no_split,
     )
     print(json.dumps(metrics["targets"], indent=2))
 

@@ -28,15 +28,21 @@ def _first_step_backfill(da: xr.DataArray, dim: str = _TIME_DIM) -> xr.DataArray
 def integrated_water_vapour(ds: xr.Dataset) -> xr.DataArray:
     """Column-integrated water vapour ``iwv`` in kg m-2.
 
-    When pressure-level ``rh`` and ``t`` are present the field is
-    ``(1/g) * |integral of q dp|`` with ``q`` the specific humidity; otherwise
-    the surface ``tcwv`` field is returned unchanged (renamed to ``iwv``).
+    Prefers the surface ``tcwv`` field (IMDAA ships total precipitable water,
+    which includes the sub-1000 hPa boundary layer). Falls back to
+    ``(1/g) * |integral of q dp|`` over the pressure levels - which omits the
+    boundary layer below 1000 hPa - only when ``tcwv`` is absent.
     """
+    if "tcwv" in ds.data_vars:
+        primary = ds["tcwv"].astype("float32").rename("iwv")
+        return primary.assign_attrs(
+            units="kg m-2", long_name="integrated water vapour (from tcwv / PWAT)"
+        )
+
     has_levels = _LEVEL_DIM in ds.dims and {"rh", "t"} <= set(ds.data_vars)
     if not has_levels:
-        fallback = ds["tcwv"].astype("float32").rename("iwv")
-        return fallback.assign_attrs(
-            units="kg m-2", long_name="integrated water vapour (tcwv fallback)"
+        raise KeyError(
+            "integrated_water_vapour needs 'tcwv' or pressure-level 'rh' + 't'"
         )
 
     from metpy.calc import mixing_ratio_from_relative_humidity
@@ -76,7 +82,10 @@ def integrated_water_vapour(ds: xr.Dataset) -> xr.DataArray:
         dims=out_dims,
         coords={d: ds[d] for d in out_dims},
         name="iwv",
-        attrs={"units": "kg m-2", "long_name": "integrated water vapour"},
+        attrs={
+            "units": "kg m-2",
+            "long_name": "integrated water vapour (pressure-level integral fallback)",
+        },
     )
 
 
