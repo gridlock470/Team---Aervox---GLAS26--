@@ -15,7 +15,9 @@ from __future__ import annotations
 
 import argparse
 import sys
+import threading
 import traceback
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from datetime import date, timedelta
 
 import numpy as np
@@ -28,6 +30,18 @@ SHORT_NAME = "GPM_3IMERGHH"
 VERSION = "07"
 EXPECTED_PER_DAY = 48  # half-hourly
 PAD = 0.5  # deg of margin -- must match nowcast.common.grid.crop_bbox default
+# PROCESSES, not threads: earthaccess reads granules through fsspec, which
+# shares ONE asyncio event loop across all threads in a process. Eight threads
+# saturate it and every range-read dies with FSTimeoutError. Separate processes
+# each get their own loop and their own HTTP session.
+DEFAULT_WORKERS = 4
+
+_PRINT_LOCK = threading.Lock()
+
+
+def _log(msg: str) -> None:
+    with _PRINT_LOCK:
+        print(msg, flush=True)
 
 
 def daterange(start: date, end: date):
@@ -50,10 +64,65 @@ def subset_granule(fh) -> xr.Dataset:
     return grid.crop_bbox(ds[["precipitation"]], pad=PAD).load()
 
 
+def fetch_day(d: date, out_dir, bbox, total: int, idx: int) -> str:
+    """Fetch one day. Returns "done" | "short" | "skip" | "fail".
+
+    Runs in its own process, so it must establish its own earthaccess
+    session rather than inheriting one from the parent.
+    """
+    import earthaccess
+
+    earthaccess.login(strategy="netrc")
+
+    dest = out_dir / f"imerg_{d:%Y%m%d}.nc"
+    if dest.exists() and dest.stat().st_size > 0:
+        return "skip"
+
+    tmp = dest.with_suffix(".nc.part")
+    try:
+        results = earthaccess.search_data(
+            short_name=SHORT_NAME,
+            version=VERSION,
+            temporal=(f"{d:%Y-%m-%d}", f"{d:%Y-%m-%d}"),
+            bounding_box=bbox,
+        )
+        if not results:
+            _log(f"[{idx}/{total}] {d} NO GRANULES")
+            return "fail"
+
+        files = earthaccess.open(results)
+        parts = [subset_granule(f) for f in files]
+        day_ds = xr.concat(parts, dim="time").sortby("time")
+
+        status = "done"
+        n = day_ds.sizes.get("time", 0)
+        if n != EXPECTED_PER_DAY:
+            # Report rather than silently accepting a gappy day.
+            _log(f"[{idx}/{total}] {d} WARNING {n}/{EXPECTED_PER_DAY} timesteps")
+            status = "short"
+
+        day_ds["precipitation"] = day_ds["precipitation"].astype(np.float32)
+        day_ds.attrs.update(
+            source=f"{SHORT_NAME} v{VERSION}",
+            bbox_west=config.BBOX_WEST, bbox_east=config.BBOX_EAST,
+            bbox_south=config.BBOX_SOUTH, bbox_north=config.BBOX_NORTH,
+        )
+        day_ds.to_netcdf(tmp, engine="h5netcdf")
+        day_ds.close()
+        tmp.replace(dest)
+        return status
+    except Exception as e:  # noqa: BLE001 - keep going, report at end
+        tmp.unlink(missing_ok=True)
+        _log(f"[{idx}/{total}] {d} FAILED {type(e).__name__}: {e}")
+        traceback.print_exc(limit=2)
+        return "fail"
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--start", default="2018-01-01")
     ap.add_argument("--end", default="2020-12-31")
+    ap.add_argument("--workers", type=int, default=DEFAULT_WORKERS)
     args = ap.parse_args()
 
     start = date.fromisoformat(args.start)
@@ -68,62 +137,34 @@ def main() -> int:
     bbox = (config.BBOX_WEST, config.BBOX_SOUTH, config.BBOX_EAST, config.BBOX_NORTH)
 
     days = list(daterange(start, end))
-    print(f"{len(days)} days, bbox={bbox}, out={out_dir}", flush=True)
+    total = len(days)
+    _log(f"{total} days, {args.workers} workers, bbox={bbox}, out={out_dir}")
 
-    done = short = failed = 0
-    for i, d in enumerate(days, 1):
-        dest = out_dir / f"imerg_{d:%Y%m%d}.nc"
-        if dest.exists() and dest.stat().st_size > 0:
-            done += 1
-            continue
+    counts = {"done": 0, "short": 0, "skip": 0, "fail": 0}
+    completed = 0
+    with ProcessPoolExecutor(max_workers=args.workers) as pool:
+        futures = {
+            pool.submit(fetch_day, d, out_dir, bbox, total, i): d
+            for i, d in enumerate(days, 1)
+        }
         try:
-            results = earthaccess.search_data(
-                short_name=SHORT_NAME,
-                version=VERSION,
-                temporal=(f"{d:%Y-%m-%d}", f"{d:%Y-%m-%d}"),
-                bounding_box=bbox,
-            )
-            if not results:
-                print(f"[{i}/{len(days)}] {d} NO GRANULES", flush=True)
-                failed += 1
-                continue
-
-            files = earthaccess.open(results)
-            parts = [subset_granule(f) for f in files]
-            day_ds = xr.concat(parts, dim="time").sortby("time")
-
-            n = day_ds.sizes.get("time", 0)
-            if n != EXPECTED_PER_DAY:
-                # Report rather than silently accepting a gappy day.
-                print(f"[{i}/{len(days)}] {d} WARNING {n}/{EXPECTED_PER_DAY} timesteps", flush=True)
-                short += 1
-
-            day_ds["precipitation"] = day_ds["precipitation"].astype(np.float32)
-            day_ds.attrs.update(
-                source=f"{SHORT_NAME} v{VERSION}",
-                bbox_west=config.BBOX_WEST, bbox_east=config.BBOX_EAST,
-                bbox_south=config.BBOX_SOUTH, bbox_north=config.BBOX_NORTH,
-            )
-            tmp = dest.with_suffix(".nc.part")
-            day_ds.to_netcdf(tmp, engine="h5netcdf")
-            tmp.replace(dest)
-            day_ds.close()
-
-            if i % 25 == 0 or i == 1:
-                mb = sum(f.stat().st_size for f in out_dir.glob("*.nc")) / 1e6
-                print(f"[{i}/{len(days)}] {d} OK  ({mb:.1f} MB on disk)", flush=True)
-            done += 1
+            for fut in as_completed(futures):
+                counts[fut.result()] += 1
+                completed += 1
+                if completed % 25 == 0 or completed == total:
+                    mb = sum(f.stat().st_size for f in out_dir.glob("*.nc")) / 1e6
+                    _log(f"progress {completed}/{total}  ok={counts['done']} "
+                         f"short={counts['short']} skip={counts['skip']} "
+                         f"fail={counts['fail']}  ({mb:.1f} MB)")
         except KeyboardInterrupt:
-            print("interrupted -- rerun to resume", flush=True)
+            _log("interrupted -- rerun to resume")
+            pool.shutdown(cancel_futures=True)
             return 130
-        except Exception as e:  # noqa: BLE001 - keep going, report at end
-            print(f"[{i}/{len(days)}] {d} FAILED {type(e).__name__}: {e}", flush=True)
-            traceback.print_exc(limit=2)
-            failed += 1
 
     mb = sum(f.stat().st_size for f in out_dir.glob("*.nc")) / 1e6
-    print(f"\ndone: {done} days, {short} short days, {failed} failed, {mb:.1f} MB")
-    return 1 if failed else 0
+    _log(f"done: {counts['done']} fetched, {counts['skip']} skipped, "
+         f"{counts['short']} short, {counts['fail']} failed, {mb:.1f} MB")
+    return 1 if counts["fail"] else 0
 
 
 if __name__ == "__main__":
