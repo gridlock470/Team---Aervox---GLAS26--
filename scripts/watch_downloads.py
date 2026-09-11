@@ -17,6 +17,7 @@ import shutil
 import sys
 import time
 from dataclasses import dataclass, field
+from datetime import date, timedelta
 from pathlib import Path
 
 from nowcast import config
@@ -44,6 +45,11 @@ class Track:
     directory: Path
     pattern: str
     target: int
+    # When set, only these filenames count towards progress. Without it, a
+    # directory holding leftovers from an earlier run reports "complete" while
+    # the window actually requested still has holes -- which is exactly what
+    # happened here: 183 files on disk, but only 150 of the 183 needed days.
+    expected_names: set[str] | None = None
     seen: set[str] = field(default_factory=set)
     arrivals: list[float] = field(default_factory=list)
     samples: list[tuple[float, int]] = field(default_factory=list)
@@ -93,6 +99,8 @@ class Track:
     def poll(self) -> list[str]:
         """Return names of files that appeared since the last poll."""
         now = sorted(p.name for p in self.directory.glob(self.pattern))
+        if self.expected_names is not None:
+            now = [n for n in now if n in self.expected_names]
         fresh = [n for n in now if n not in self.seen]
         self.seen.update(now)
         for _ in fresh:
@@ -105,9 +113,18 @@ class Track:
         return len(self.seen)
 
     @property
+    def missing(self) -> list[str]:
+        """Expected files not yet on disk, in order. Empty when no window is set."""
+        if self.expected_names is None:
+            return []
+        return sorted(self.expected_names - self.seen)
+
+    @property
     def bytes(self) -> int:
         total = 0
         for p in self.directory.glob(self.pattern):
+            if self.expected_names is not None and p.name not in self.expected_names:
+                continue
             try:
                 total += p.stat().st_size
             except OSError:
@@ -182,6 +199,11 @@ def render(tracks: list[Track], events: list[str], started: float, frame: int) -
             out.append(
                 f"         {C_DIM}{spin} {name[:38]:<38} {human_bytes(size):>9}{C_OFF}"
             )
+        gaps = t.missing
+        if gaps and not done:
+            shown = ", ".join(g.replace("imerg_", "").replace(".nc", "") for g in gaps[:6])
+            more = f" +{len(gaps) - 6} more" if len(gaps) > 6 else ""
+            out.append(f"         {C_DIM}missing {len(gaps)}: {shown}{more}{C_OFF}")
         sp = t.spark()
         if sp and not done:
             out.append(f"         {C_DIM}{sp}{C_OFF}")
@@ -200,16 +222,33 @@ def render(tracks: list[Track], events: list[str], started: float, frame: int) -
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--imerg-total", type=int, default=183,
-                    help="expected IMERG days (default: Apr-Sep 2018)")
+                    help="expected IMERG days when no date window is given")
+    ap.add_argument("--imerg-start", default="2018-04-01",
+                    help="first IMERG day to count, ISO date (blank to disable)")
+    ap.add_argument("--imerg-end", default="2018-09-30",
+                    help="last IMERG day to count, ISO date")
     ap.add_argument("--era5-total", type=int, default=24)
     ap.add_argument("--dem-total", type=int, default=30)
     ap.add_argument("--once", action="store_true", help="print one frame and exit")
     args = ap.parse_args()
 
+    imerg_names: set[str] | None = None
+    imerg_total = args.imerg_total
+    if args.imerg_start and args.imerg_end:
+        start = date.fromisoformat(args.imerg_start)
+        end = date.fromisoformat(args.imerg_end)
+        imerg_names = set()
+        day = start
+        while day <= end:
+            imerg_names.add(f"imerg_{day:%Y%m%d}.nc")
+            day += timedelta(days=1)
+        imerg_total = len(imerg_names)
+
     tracks = [
         Track("DEM", config.RAW_DEM_DIR, "*.tif", args.dem_total),
         Track("ERA5", Path(config.RAW_DIR) / "era5", "*.nc", args.era5_total),
-        Track("IMERG", config.RAW_IMERG_DIR, "*.nc", args.imerg_total),
+        Track("IMERG", config.RAW_IMERG_DIR, "*.nc", imerg_total,
+              expected_names=imerg_names),
     ]
     for t in tracks:
         t.directory.mkdir(parents=True, exist_ok=True)
