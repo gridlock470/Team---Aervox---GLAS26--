@@ -4,7 +4,6 @@ import './NavRail.css'
 
 export default function NavRail({ region, hazard, step, onHazardChange }) {
   const regionData = DATA[region]
-  const vals = regionData.hazards[hazard].vals
 
   return (
     <nav className="nav-rail">
@@ -33,24 +32,9 @@ export default function NavRail({ region, hazard, step, onHazardChange }) {
           })}
         </div>
       </div>
-      <div className="nav-section">
-        <h3>Monitored points &mdash; {regionData.title}</h3>
-        <div className="station-list">
-          {Object.keys(regionData.stations).map((id) => {
-            const pct = vals[id][step]
-            const sev = SEV[sevFor(pct)]
-            return (
-              <div className="station-row" key={id}>
-                <span className="name">
-                  <span className="sev-dot" style={{ background: sev.hex }}></span>
-                  {regionData.stations[id].name}
-                </span>
-                <span className="pct mono">{pct}%</span>
-              </div>
-            )
-          })}
-        </div>
-      </div>
+      <p className="nav-note">
+        {regionData.title} &mdash; {regionData.subtitle}
+      </p>
     </nav>
   )
 }

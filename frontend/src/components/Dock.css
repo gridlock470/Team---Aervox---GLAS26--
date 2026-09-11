@@ -1,0 +1,174 @@
+/* ---------- dock ---------- */
+/* Neutral chrome only. Colour in here is reserved for severity, which the
+   dock itself never renders — panels inside the body own that. */
+
+.dock{
+  display:flex;
+  flex-direction:column;
+  align-self:stretch;
+  flex:none;
+  width:340px;
+  min-height:0;
+  overflow:hidden;
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:8px;
+  transition:width 160ms ease-out;
+}
+.dock.is-collapsed{ width:44px; }
+
+/* ---------- tab strip ---------- */
+.dock-strip{
+  display:flex;
+  align-items:stretch;
+  flex:none;
+  padding:0 6px;
+  border-bottom:1px solid var(--line);
+}
+.dock-tabs{
+  display:flex;
+  align-items:stretch;
+  gap:2px;
+  min-width:0;
+  overflow-x:auto;
+  scrollbar-width:none;
+}
+.dock-tabs::-webkit-scrollbar{ display:none; }
+
+.dock-tab{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  flex:none;
+  appearance:none;
+  background:none;
+  border:0;
+  border-bottom:2px solid transparent;
+  border-radius:2px 2px 0 0;   /* square-ish where the tab meets the body */
+  margin-bottom:-1px;          /* indicator sits on the strip rule */
+  padding:11px 10px 9px;
+  font-size:12.5px;
+  line-height:1;
+  color:var(--ink-dim);
+  white-space:nowrap;
+  cursor:pointer;
+  transition:color 140ms ease-out, border-color 140ms ease-out;
+}
+.dock-tab:hover{ color:var(--ink); }
+.dock-tab[aria-selected="true"]{
+  color:var(--ink);
+  font-weight:600;
+  border-bottom-color:var(--ink);
+}
+
+.dock-badge{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex:none;
+  min-width:17px;
+  height:16px;
+  padding:0 4px;
+  border:1px solid var(--line);
+  border-radius:8px;
+  font-size:10.5px;
+  font-weight:400;
+  line-height:1;
+  color:var(--ink-dim);
+}
+.dock-tab[aria-selected="true"] .dock-badge{ color:var(--ink); }
+
+.dock-collapse{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex:none;
+  width:28px;
+  margin-left:auto;
+  padding:0;
+  background:none;
+  border:0;
+  color:var(--ink-faint);
+  cursor:pointer;
+  transition:color 140ms ease-out;
+}
+.dock-collapse:hover{ color:var(--ink-dim); }
+
+/* ---------- panel body ---------- */
+.dock-body{
+  flex:1 1 auto;
+  min-height:0;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  padding:14px 16px;
+}
+
+/* ---------- collapsed: 44px vertical strip ---------- */
+.dock.is-collapsed .dock-strip{
+  flex-direction:column;
+  flex:1 1 auto;
+  min-height:0;
+  padding:8px 0;
+  border-bottom:0;
+}
+.dock.is-collapsed .dock-tabs{
+  flex-direction:column;
+  align-items:stretch;
+  gap:4px;
+  min-height:0;
+  overflow-x:hidden;
+  overflow-y:auto;
+}
+.dock.is-collapsed .dock-tab{
+  flex-direction:column;
+  justify-content:flex-start;
+  gap:6px;
+  width:100%;
+  margin-bottom:0;
+  padding:10px 0;
+  border-bottom:0;
+  border-left:2px solid transparent;
+  border-radius:0 2px 2px 0;
+}
+.dock.is-collapsed .dock-tab[aria-selected="true"]{
+  border-left-color:var(--ink);
+}
+.dock.is-collapsed .dock-tab-label{
+  writing-mode:vertical-rl;
+  max-height:112px;
+  overflow:hidden;
+}
+.dock.is-collapsed .dock-collapse{
+  width:auto;
+  height:28px;
+  margin-left:0;
+  margin-top:auto;
+}
+
+/* ---------- focus ---------- */
+.dock-tab:focus-visible,
+.dock-collapse:focus-visible,
+.dock-body:focus-visible{
+  outline:2px solid var(--focus);
+  outline-offset:-2px;
+}
+
+/* ---------- screen-reader only ---------- */
+.dock-vh{
+  position:absolute;
+  width:1px;
+  height:1px;
+  margin:-1px;
+  padding:0;
+  overflow:hidden;
+  clip:rect(0 0 0 0);
+  clip-path:inset(50%);
+  white-space:nowrap;
+  border:0;
+}
+
+@media (prefers-reduced-motion: reduce){
+  .dock,
+  .dock-tab,
+  .dock-collapse{ transition:none; }
+}
