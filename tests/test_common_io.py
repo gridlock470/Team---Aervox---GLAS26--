@@ -90,10 +90,11 @@ def test_standardize_coords_keeps_ecmwf_temperature_variable():
     variables too, so an ERA5/IMDAA pressure-level file carrying both ``t``
     and ``valid_time`` raised "the new name 'time' conflicts".
     """
+    dims = ("valid_time", "pressure_level", "latitude", "longitude")
     ds = xr.Dataset(
         {
-            "t": (("valid_time", "pressure_level", "latitude", "longitude"), np.zeros((1, 2, 2, 2))),
-            "r": (("valid_time", "pressure_level", "latitude", "longitude"), np.zeros((1, 2, 2, 2))),
+            "t": (dims, np.zeros((1, 2, 2, 2))),
+            "r": (dims, np.zeros((1, 2, 2, 2))),
         },
         coords={
             "valid_time": [0],
