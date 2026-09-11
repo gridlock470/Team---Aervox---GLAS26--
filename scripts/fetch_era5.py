@@ -51,6 +51,13 @@ AREA = [
 ALL_DAYS = [f"{d:02d}" for d in range(1, 32)]
 ALL_TIMES = [f"{h:02d}:00" for h in range(24)]
 
+# Pressure levels are requested 3-hourly, not hourly. Two reasons, in order:
+# the CDS per-request cost limit rejects the hourly form outright ("cost
+# limits exceeded" -- 5 vars x 7 levels x 24 times x 31 days is ~26k fields),
+# and 3-hourly is the cadence the IMDAA pressure-level card this dataset
+# stands in for actually provides. Surface fields stay hourly.
+PRESSURE_TIMES = [f"{h:02d}:00" for h in range(0, 24, 3)]
+
 
 def _normalise_download(tmp: Path, dest: Path) -> None:
     """Move ``tmp`` to ``dest``, unwrapping the CDS zip envelope if present.
@@ -107,6 +114,8 @@ def build_request(dataset: str, year: int, month: int, days, times) -> dict:
     else:
         req["variable"] = PRESSURE_LEVEL_VARS
         req["pressure_level"] = [str(p) for p in config.PRESSURE_LEVELS_HPA]
+        # Override the caller's times: hourly exceeds the CDS cost limit here.
+        req["time"] = [t for t in PRESSURE_TIMES if t in set(times)] or PRESSURE_TIMES
     return req
 
 
