@@ -70,16 +70,19 @@ def fetch_day(d: date, out_dir, bbox, total: int, idx: int) -> str:
     Runs in its own process, so it must establish its own earthaccess
     session rather than inheriting one from the parent.
     """
-    import earthaccess
-
-    earthaccess.login(strategy="netrc")
-
     dest = out_dir / f"imerg_{d:%Y%m%d}.nc"
     if dest.exists() and dest.stat().st_size > 0:
         return "skip"
 
     tmp = dest.with_suffix(".nc.part")
     try:
+        import earthaccess
+
+        # Inside the try on purpose: a transient DNS failure resolving the
+        # Earthdata host used to raise out of the worker, propagate through
+        # future.result() and kill the entire run over one network blip.
+        earthaccess.login(strategy="netrc")
+
         results = earthaccess.search_data(
             short_name=SHORT_NAME,
             version=VERSION,
@@ -149,7 +152,11 @@ def main() -> int:
         }
         try:
             for fut in as_completed(futures):
-                counts[fut.result()] += 1
+                try:
+                    counts[fut.result()] += 1
+                except Exception as e:  # noqa: BLE001 - one bad day must not end the run
+                    _log(f"worker for {futures[fut]} died: {type(e).__name__}: {e}")
+                    counts["fail"] += 1
                 completed += 1
                 if completed % 25 == 0 or completed == total:
                     mb = sum(f.stat().st_size for f in out_dir.glob("*.nc")) / 1e6
