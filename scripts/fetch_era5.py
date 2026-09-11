@@ -10,8 +10,9 @@ request is large. Requires ``%USERPROFILE%\.cdsapirc``.
 from __future__ import annotations
 
 import argparse
+import io
 import sys
-import tempfile
+import uuid
 import zipfile
 from pathlib import Path
 
@@ -58,6 +59,10 @@ def _normalise_download(tmp: Path, dest: Path) -> None:
     (total_precipitation is accumulated) come back as a zip holding one
     NetCDF per stream. Merge them into the single file the ingest path
     expects. Pressure-level requests arrive as plain NetCDF4.
+
+    Members are read into memory rather than extracted to a temp directory:
+    on Windows, h5netcdf keeps a handle on an extracted file long enough that
+    TemporaryDirectory cleanup raises PermissionError and kills the run.
     """
     if not zipfile.is_zipfile(tmp):
         tmp.replace(dest)
@@ -65,20 +70,25 @@ def _normalise_download(tmp: Path, dest: Path) -> None:
 
     import xarray as xr
 
-    with zipfile.ZipFile(tmp) as z, tempfile.TemporaryDirectory() as td:
-        parts = []
+    parts = []
+    with zipfile.ZipFile(tmp) as z:
         for name in z.namelist():
             if not name.endswith(".nc"):
                 continue
-            member = z.extract(name, td)
-            with xr.open_dataset(member, engine="h5netcdf") as d:
-                parts.append(d.load())
-        if not parts:
-            raise RuntimeError(f"no .nc members inside {tmp.name}")
-        merged = xr.merge(parts, compat="no_conflicts")
+            buf = io.BytesIO(z.read(name))
+            parts.append(xr.open_dataset(buf, engine="h5netcdf").load())
+    if not parts:
+        raise RuntimeError(f"no .nc members inside {tmp.name}")
+
+    merged = xr.merge(parts, compat="no_conflicts")
     merged.to_netcdf(dest, engine="h5netcdf")
     merged.close()
-    tmp.unlink(missing_ok=True)
+    for d in parts:
+        d.close()
+    try:
+        tmp.unlink(missing_ok=True)
+    except OSError:
+        pass  # Windows may still hold the handle; stale .part is swept at startup
 
 
 def build_request(dataset: str, year: int, month: int, days, times) -> dict:
@@ -113,6 +123,11 @@ def main() -> int:
     client = cdsapi.Client()
     out_dir = Path(config.RAW_DIR) / "era5"
     out_dir.mkdir(parents=True, exist_ok=True)
+    for stale in out_dir.glob("*.part"):
+        try:
+            stale.unlink()
+        except OSError:
+            pass
 
     years = [int(y) for y in args.years.split(",")]
     months = [int(m) for m in args.months.split(",")]
@@ -138,7 +153,10 @@ def main() -> int:
             print(f"[{i}/{len(jobs)}] {dest.name} present, skip", flush=True)
             done += 1
             continue
-        tmp = dest.with_suffix(".nc.part")
+        # Unique per attempt: the ecmwf-datastores client calls
+        # os.remove(target) on a handle it still owns, which fails on
+        # Windows if any file is already at that path.
+        tmp = dest.with_name(f"{dest.stem}.{uuid.uuid4().hex[:8]}.part")
         try:
             print(f"[{i}/{len(jobs)}] requesting {dest.name} ...", flush=True)
             client.retrieve(ds, build_request(ds, y, m, days, times), str(tmp))
@@ -149,7 +167,10 @@ def main() -> int:
             print("interrupted -- rerun to resume", flush=True)
             return 130
         except Exception as e:  # noqa: BLE001 - report and continue
-            tmp.unlink(missing_ok=True)
+            try:
+                tmp.unlink(missing_ok=True)
+            except OSError:
+                pass  # Windows may still hold the handle; a retry overwrites it
             print(f"[{i}/{len(jobs)}] {dest.name} FAILED {type(e).__name__}: {e}", flush=True)
             failed += 1
 
