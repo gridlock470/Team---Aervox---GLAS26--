@@ -96,15 +96,24 @@ CLOUDBURST_PRECIP_MM_H: float = 50.0
 CLOUDBURST_ACCUM_MM_2H: float = 60.0
 FLASH_FLOOD_UPSTREAM_ACCUM_MM: float = 80.0  # rain routed over the drainage network
 
-# Gaussian smoothing sigma (grid cells) applied to binary occurrence -> prob map.
+# Spatial Gaussian smoothing sigma (grid cells) applied to the occurrence mask.
+# The smoothed field is PEAK-NORMALISED in features.labels so an isolated event
+# still reaches 1.0 (see LABEL_OCCURRENCE_THRESHOLD).
 LABEL_SMOOTH_SIGMA: float = 1.0
+
+# A grid cell counts as a positive occurrence (for CSI/POD/FAR, the LightGBM
+# baseline, and calibration) when its (peak-normalised) label >= this value.
+LABEL_OCCURRENCE_THRESHOLD: float = 0.5
 
 # ---------------------------------------------------------------------------
 # Reproducibility
 # ---------------------------------------------------------------------------
 RANDOM_SEED: int = 1234
 
-# Train / val / test split by calendar year.
-TRAIN_YEARS: tuple[int, ...] = (2018, 2019)
-VAL_YEARS: tuple[int, ...] = (2020,)
-TEST_YEARS: tuple[int, ...] = (2020,)  # held-out event windows carved out in code
+# Chronological train / val / test split — DISJOINT ISO date ranges, both ends
+# inclusive. Model selection uses VAL, final held-out evaluation uses TEST.
+# Consumed by data.datamodule and baseline.dataset (filter on the ``time`` coord;
+# do NOT split by calendar year — val and test would overlap).
+TRAIN_DATE_RANGE: tuple[str, str] = ("2018-01-01", "2019-12-31")
+VAL_DATE_RANGE: tuple[str, str] = ("2020-01-01", "2020-06-30")
+TEST_DATE_RANGE: tuple[str, str] = ("2020-07-01", "2020-12-31")
