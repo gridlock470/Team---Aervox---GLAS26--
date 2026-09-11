@@ -19,6 +19,42 @@
   --seq-soft:#2A4155;
 
   --focus:#6FA8C9;
+
+  /* Basemap tone. The dark console needs the light cartographic raster pulled
+     down so the hazard overlay stays the brightest thing on screen; the light
+     theme leaves it alone. */
+  --map-filter:brightness(.62) saturate(.62) contrast(1.08);
+  --overlay-bg:rgba(10,20,32,.88);
+}
+
+/* Light theme. Dark stays the default above, so nothing changes until someone
+   opts in.
+
+   Severity colours are darkened rather than reused: the dark-theme values are
+   desaturated to sit on #0A1420 and fail contrast against a white panel. Hues
+   are held constant so a red reads as the same red in either theme. */
+:root[data-theme="light"]{
+  --bg:#EEF2F7;
+  --panel:#FFFFFF;
+  --panel-raised:#F3F6FA;
+  --line:#C8D4E0;
+  --line-soft:#DFE7EF;
+  --ink:#16222E;
+  --ink-dim:#4B5F72;
+  --ink-faint:#74879A;
+
+  --sev-green:#2F6B49;
+  --sev-yellow:#6B6D20;
+  --sev-orange:#9A4A13;
+  --sev-red:#93262A;
+
+  --seq:#37718F;
+  --seq-soft:#C3D6E2;
+
+  --focus:#1E5A8A;
+
+  --map-filter:none;
+  --overlay-bg:rgba(255,255,255,.92);
 }
 
 *{ box-sizing:border-box; }

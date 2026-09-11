@@ -5,6 +5,20 @@ import './Header.css'
 const BASE_HOUR = 7, BASE_MIN = 42, BASE_SEC = 18
 const BASE_TOTAL_SECONDS = BASE_HOUR * 3600 + BASE_MIN * 60 + BASE_SEC
 
+const THEME_KEY = 'nowcast-theme'
+
+/* Dark is the default: this is a control-room display, usually run at night.
+   localStorage is guarded because it throws outright in some privacy modes
+   rather than returning null. */
+function readStoredTheme() {
+  try {
+    const stored = localStorage.getItem(THEME_KEY)
+    return stored === 'light' || stored === 'dark' ? stored : 'dark'
+  } catch {
+    return 'dark'
+  }
+}
+
 function formatClock(totalSeconds) {
   const h = Math.floor(totalSeconds / 3600) % 24
   const m = Math.floor(totalSeconds / 60) % 60
@@ -14,6 +28,7 @@ function formatClock(totalSeconds) {
 
 export default function Header({ region, onRegionChange }) {
   const [clockSeconds, setClockSeconds] = useState(BASE_TOTAL_SECONDS)
+  const [theme, setTheme] = useState(readStoredTheme)
 
   useEffect(() => {
     const id = setInterval(() => {
@@ -21,6 +36,16 @@ export default function Header({ region, onRegionChange }) {
     }, 1000)
     return () => clearInterval(id)
   }, [])
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme)
+    try {
+      localStorage.setItem(THEME_KEY, theme)
+    } catch {
+      // Private browsing can refuse writes; the theme still applies for this
+      // session, it just will not be remembered.
+    }
+  }, [theme])
 
   return (
     <header className="console-header">
@@ -41,6 +66,16 @@ export default function Header({ region, onRegionChange }) {
             </button>
           ))}
         </div>
+        <button
+          type="button"
+          className="theme-toggle"
+          aria-pressed={theme === 'light'}
+          title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+          onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+        >
+          <span className="theme-glyph" aria-hidden="true">{theme === 'dark' ? '☾' : '☀'}</span>
+          {theme === 'dark' ? 'Dark' : 'Light'}
+        </button>
         <div className="status-block">
           <span className="live-pill"><span className="live-dot"></span>Live &mdash; refreshed every 10 min</span>
           <span className="clock mono">{formatClock(clockSeconds)}</span>

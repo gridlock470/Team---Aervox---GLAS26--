@@ -26,6 +26,36 @@
   gap:18px;
   flex-wrap:wrap;
 }
+
+/* Theme toggle. Neutral chrome only -- colour on this console means severity,
+   and a display preference is not a hazard. */
+.theme-toggle{
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  padding:6px 11px;
+  border:1px solid var(--line);
+  border-radius:6px;
+  background:var(--panel);
+  color:var(--ink-dim);
+  font-size:12px;
+  font-weight:500;
+  cursor:pointer;
+  transition:background 140ms ease-out, color 140ms ease-out, border-color 140ms ease-out;
+}
+.theme-toggle:hover{
+  background:var(--panel-raised);
+  color:var(--ink);
+  border-color:var(--ink-faint);
+}
+.theme-glyph{
+  font-size:13px;
+  line-height:1;
+}
+
+@media (prefers-reduced-motion: reduce){
+  .theme-toggle{ transition:none; }
+}
 .segmented{
   display:inline-flex;
   background:var(--panel);

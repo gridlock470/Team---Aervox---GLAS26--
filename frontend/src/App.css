@@ -50,7 +50,7 @@
    the map is context, the hazard is the message. Applied to MapLibre's own
    canvas only, so the deck.gl overlay keeps its true colours. */
 .stage .maplibregl-canvas{
-  filter:brightness(.62) saturate(.62) contrast(1.08);
+  filter:var(--map-filter);
 }
 
 /* Legend becomes a map overlay instead of a strip under it: it is a key for
@@ -66,7 +66,7 @@
   border-top:0;
   border:1px solid var(--line);
   border-radius:8px;
-  background:rgba(10,20,32,.88);
+  background:var(--overlay-bg);
   backdrop-filter:blur(8px);
 }
 
@@ -80,7 +80,7 @@
   z-index:5;
   width:max-content;
   max-width:calc(100% - 32px);
-  background:rgba(10,20,32,.88);
+  background:var(--overlay-bg);
   border:1px solid var(--line);
   border-radius:8px;
   padding:10px 14px;
