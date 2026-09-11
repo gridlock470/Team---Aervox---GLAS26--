@@ -46,6 +46,7 @@ pyyaml>=6.0
 # --- remote fetch (GPM IMERG, Copernicus GLO-30 DEM) ---
 requests>=2.31
 earthaccess>=0.9
+cdsapi>=0.7
 pooch>=1.8
 
 # --- dev / test ---
