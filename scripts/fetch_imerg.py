@@ -22,10 +22,12 @@ import numpy as np
 import xarray as xr
 
 from nowcast import config
+from nowcast.common import grid
 
 SHORT_NAME = "GPM_3IMERGHH"
 VERSION = "07"
 EXPECTED_PER_DAY = 48  # half-hourly
+PAD = 0.5  # deg of margin -- must match nowcast.common.grid.crop_bbox default
 
 
 def daterange(start: date, end: date):
@@ -36,14 +38,16 @@ def daterange(start: date, end: date):
 
 
 def subset_granule(fh) -> xr.Dataset:
-    """Open one IMERG granule and crop to the pilot bbox."""
+    """Open one IMERG granule and crop to the pilot bbox plus margin.
+
+    IMERG cell centres are registered on the half-tenth (27.85, 27.95, ...)
+    while ``config.GRID_LAT`` sits on the tenth (27.8, 27.9, ...), so the two
+    grids are offset by half a cell. ``crop_bbox`` keeps ``PAD`` degrees of
+    margin so the later ``regrid_to_target`` interpolation onto the exact
+    contract grid never reaches past the edge of the stored data.
+    """
     ds = xr.open_dataset(fh, group="Grid", engine="h5netcdf", decode_times=True)
-    # IMERG is stored lon-major; select by label works for both orderings.
-    sub = ds[["precipitation"]].sel(
-        lat=slice(config.BBOX_SOUTH, config.BBOX_NORTH),
-        lon=slice(config.BBOX_WEST, config.BBOX_EAST),
-    )
-    return sub.load()
+    return grid.crop_bbox(ds[["precipitation"]], pad=PAD).load()
 
 
 def main() -> int:
