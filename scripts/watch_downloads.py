@@ -21,11 +21,21 @@ from pathlib import Path
 
 from nowcast import config
 
-REFRESH_S = 2.0
+REFRESH_S = 1.0
 BAR_W = 28
 # Arrivals kept per dataset for the rate estimate. Short on purpose: a long
 # window would hide a slowdown that has already happened.
 WINDOW = 12
+# Byte samples for the throughput readout. Whole files land minutes apart, but
+# the in-flight .part files grow every second -- that is the live signal.
+BYTE_WINDOW = 30
+SPARK = "_.-=+*#%"
+SPIN = "|/-\\"
+
+C_DIM = "\033[38;5;244m"
+C_OK = "\033[38;5;71m"
+C_LIVE = "\033[38;5;74m"
+C_OFF = "\033[0m"
 
 
 @dataclass
@@ -36,6 +46,49 @@ class Track:
     target: int
     seen: set[str] = field(default_factory=set)
     arrivals: list[float] = field(default_factory=list)
+    samples: list[tuple[float, int]] = field(default_factory=list)
+
+    def sample_bytes(self) -> None:
+        """Record total bytes, finished plus in-flight, for the rate readout."""
+        self.samples.append((time.time(), self.bytes + self.inflight_bytes))
+        del self.samples[:-BYTE_WINDOW]
+
+    @property
+    def inflight(self) -> list[tuple[str, int]]:
+        """Temp files currently being written, with their size so far."""
+        out = []
+        for p in self.directory.glob("*.part"):
+            try:
+                out.append((p.name, p.stat().st_size))
+            except OSError:
+                pass  # renamed out from under us between glob and stat
+        return sorted(out)
+
+    @property
+    def inflight_bytes(self) -> int:
+        return sum(size for _, size in self.inflight)
+
+    def bytes_per_s(self) -> float | None:
+        """Throughput across the sample window, or None until it has two."""
+        if len(self.samples) < 2:
+            return None
+        (t0, b0), (t1, b1) = self.samples[0], self.samples[-1]
+        span = t1 - t0
+        if span <= 0:
+            return None
+        return max(0.0, (b1 - b0) / span)
+
+    def spark(self) -> str:
+        """Recent throughput as a tiny bar strip, scaled to its own max."""
+        if len(self.samples) < 3:
+            return ""
+        deltas = [
+            max(0, self.samples[i][1] - self.samples[i - 1][1])
+            for i in range(1, len(self.samples))
+        ]
+        peak = max(deltas) or 1
+        top = len(SPARK) - 1
+        return "".join(SPARK[min(top, d * len(SPARK) // (peak + 1))] for d in deltas[-16:])
 
     def poll(self) -> list[str]:
         """Return names of files that appeared since the last poll."""
@@ -102,31 +155,45 @@ def bar(done: int, total: int, width: int = BAR_W) -> str:
     return "#" * filled + "." * (width - filled)
 
 
-def render(tracks: list[Track], events: list[str], started: float) -> str:
+def render(tracks: list[Track], events: list[str], started: float, frame: int) -> str:
+    spin = SPIN[frame % len(SPIN)]
+    live = sum((t.bytes_per_s() or 0) for t in tracks)
     out = [
-        "  SIH dataset downloads      elapsed " + human_time(time.time() - started),
+        f"  {C_LIVE}{spin}{C_OFF} SIH dataset downloads"
+        f"{C_DIM}      elapsed {human_time(time.time() - started)}"
+        f"      {human_bytes(live)}/s in flight{C_OFF}",
         "",
     ]
     grand = 0
     for t in tracks:
+        done = t.count >= t.target
         pct = 100 * t.count / t.target if t.target else 100.0
+        colour = C_OK if done else C_LIVE
         rate = t.seconds_per_file()
         rate_s = f"{human_time(rate)}/file" if rate else "measuring"
-        state = "done" if t.count >= t.target else f"eta {human_time(t.eta_s())}"
+        state = f"{C_OK}done{C_OFF}" if done else f"eta {human_time(t.eta_s())}"
         out.append(
-            f"  {t.name:<6} [{bar(t.count, t.target)}] "
+            f"  {t.name:<6} {colour}[{bar(t.count, t.target)}]{C_OFF} "
             f"{t.count:>4}/{t.target:<4} {pct:5.1f}%  "
-            f"{human_bytes(t.bytes):>9}  {rate_s:>13}  {state}"
+            f"{human_bytes(t.bytes):>9}  {C_DIM}{rate_s:>13}{C_OFF}  {state}"
         )
+        # The part that actually moves between file completions.
+        for name, size in t.inflight:
+            out.append(
+                f"         {C_DIM}{spin} {name[:38]:<38} {human_bytes(size):>9}{C_OFF}"
+            )
+        sp = t.spark()
+        if sp and not done:
+            out.append(f"         {C_DIM}{sp}{C_OFF}")
         grand += t.bytes
 
     out += ["", f"  total on disk  {human_bytes(grand)}", ""]
     if events:
-        out.append("  recent arrivals")
+        out.append(f"  {C_DIM}recent arrivals{C_OFF}")
         for line in events[-6:]:
             out.append(f"    {line}")
     out.append("")
-    out.append("  Ctrl-C to quit. Counts only -- this never opens the files.")
+    out.append(f"  {C_DIM}Ctrl-C to quit. Sizes only -- this never opens the files.{C_OFF}")
     return "\n".join(out)
 
 
@@ -153,19 +220,27 @@ def main() -> int:
     events: list[str] = []
 
     if args.once:
-        print(render(tracks, events, started))
+        for t in tracks:
+            t.sample_bytes()
+        print(render(tracks, events, started, 0))
         return 0
 
+    tick = 0
+    sys.stdout.write("\033[?25l")  # hide the cursor; it flickers over a redraw
     try:
         while True:
             for t in tracks:
+                t.sample_bytes()
                 for name in t.poll():
-                    events.append(f"{time.strftime('%H:%M:%S')}  {t.name:<6} {name}")
+                    events.append(
+                        f"{C_OK}{time.strftime('%H:%M:%S')}{C_OFF}  {t.name:<6} {name}"
+                    )
 
-            frame = render(tracks, events, started)
+            body = render(tracks, events, started, tick)
+            tick += 1
             rows = shutil.get_terminal_size((100, 30)).lines
             # Clear, home, then pad so stale text below cannot linger.
-            sys.stdout.write("\033[H\033[J" + frame + "\n" * max(0, rows - frame.count("\n") - 3))
+            sys.stdout.write("\033[H\033[J" + body + "\n" * max(0, rows - body.count("\n") - 3))
             sys.stdout.flush()
 
             if all(t.count >= t.target for t in tracks):
@@ -173,8 +248,10 @@ def main() -> int:
                 return 0
             time.sleep(REFRESH_S)
     except KeyboardInterrupt:
-        sys.stdout.write("\n")
         return 130
+    finally:
+        sys.stdout.write("\033[?25h\n")  # always restore the cursor
+        sys.stdout.flush()
 
 
 if __name__ == "__main__":
