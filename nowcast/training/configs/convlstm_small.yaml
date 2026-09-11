@@ -1,7 +1,7 @@
 # Small ConvLSTM nowcasting config -- CPU-friendly smoke / baseline run.
 data:
   source: synthetic          # "real" -> set features/labels/terrain paths below
-  n_hours: 56
+  n_hours: 90
   batch_size: 4
   # For source != synthetic:
   # features: data/processed/features.zarr

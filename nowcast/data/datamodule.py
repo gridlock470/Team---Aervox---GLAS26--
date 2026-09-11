@@ -18,6 +18,7 @@ from nowcast.data.transforms import (
     resolve_norm_stats,
     transform_terrain,
 )
+from nowcast.features.labels import valid_label_times
 
 _TERRAIN_VARS: tuple[str, str] = ("flow_accumulation", "hand")
 
@@ -81,6 +82,16 @@ class NowcastDataset(Dataset):
 
     ``features``/``labels`` may be in-memory xarray objects or Zarr paths;
     ``terrain`` is an independent source (see :func:`_resolve_terrain`).
+
+    A window is only served when its analysis time (the last input step) has a
+    *real* label -- :func:`nowcast.features.labels.valid_label_times` is
+    recomputed on this dataset's own (already-sliced) ``time`` coordinate, so a
+    window whose ``max(LEAD_TIMES_H)``-hour horizon would run past this split
+    (or across a time gap) is excluded. This must happen *after* slicing to a
+    split: reusing a validity mask computed on the pre-split series would
+    under-restrict the split's tail and either serve a fabricated zero-padded
+    label or, worse, a real future occurrence that actually belongs to the next
+    split -- leaking information across the chronological boundary (F19).
     """
 
     def __init__(
@@ -95,15 +106,20 @@ class NowcastDataset(Dataset):
         self.norm = norm
         self.seq_len = config.INPUT_SEQ_LEN
         self.n_times = int(self.features.sizes["time"])
-        self._length = self.n_times - self.seq_len + 1
-        if self._length <= 0:
+        window_count = self.n_times - self.seq_len + 1
+        if window_count <= 0:
             raise ValueError(
                 f"need at least {self.seq_len} time steps, got {self.n_times}"
             )
+        valid = np.asarray(
+            valid_label_times(self.features["time"]).values, dtype=bool
+        )
+        analysis_positions = np.arange(window_count) + self.seq_len - 1
+        self._window_starts = np.flatnonzero(valid[analysis_positions])
         self.terrain = _resolve_terrain(terrain, self.features)
 
     def __len__(self) -> int:
-        return self._length
+        return int(self._window_starts.size)
 
     def time_values(self) -> np.ndarray:
         """The ``time`` coordinate of this split (used to assert split disjointness)."""
@@ -117,7 +133,8 @@ class NowcastDataset(Dataset):
             values = np.broadcast_to(array.values, (stop - start, *array.shape))
         return np.asarray(values, dtype="float32")
 
-    def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def __getitem__(self, i: int) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        idx = int(self._window_starts[i])
         start, stop = idx, idx + self.seq_len
         x = np.stack([self._series(c, start, stop) for c in schema.FEATURE_CHANNELS])
         y = np.asarray(self.labels.isel(time=stop - 1).values, dtype="float32")
@@ -179,7 +196,10 @@ class NowcastDataModule(L.LightningDataModule):
         if not mask.any():
             return None
         f_sub = features.isel(time=mask)
-        if int(f_sub.sizes["time"]) < config.INPUT_SEQ_LEN + 1:
+        # A window also needs max(LEAD_TIMES_H) hours past its analysis time to
+        # survive the F19 horizon filter in NowcastDataset -- see there.
+        min_span = config.INPUT_SEQ_LEN + max(config.LEAD_TIMES_H)
+        if int(f_sub.sizes["time"]) < min_span:
             return None
         return NowcastDataset(
             f_sub, labels.isel(time=mask), norm=self.norm, terrain=self.terrain
@@ -216,7 +236,7 @@ class NowcastDataModule(L.LightningDataModule):
     @classmethod
     def from_synthetic(
         cls,
-        n_hours: int = 56,
+        n_hours: int = 90,
         *,
         seed: int = 0,
         batch_size: int = 2,
@@ -227,7 +247,10 @@ class NowcastDataModule(L.LightningDataModule):
 
         features = synthetic.make_feature_datacube(n_hours=n_hours, seed=seed)
         labels = synthetic.make_targets(n_hours=n_hours, seed=seed)
-        window = config.INPUT_SEQ_LEN + 2
+        # +max(LEAD_TIMES_H) so each split has room for >= 1 sample surviving
+        # the F19 label-horizon filter (the last max_lead window starts of
+        # every split are always invalid -- see NowcastDataset).
+        window = config.INPUT_SEQ_LEN + max(config.LEAD_TIMES_H) + 2
         if n_hours < 3 * window:
             raise ValueError(f"n_hours must be >= {3 * window} for three splits")
         bounds = (

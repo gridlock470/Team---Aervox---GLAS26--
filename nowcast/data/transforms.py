@@ -18,6 +18,20 @@ from nowcast import config, schema
 # excluded -- it is nominal and meaningless as a convolution input.
 TERRAIN_PLANES: int = 2
 
+# FEATURE_CHANNELS entries that are heavy-tailed and get log1p'd before the
+# z-score, both here and by the shared-backbone Normalizer -- matching the
+# treatment already applied to the dedicated terrain-plane copy in
+# transform_terrain. clip(min=0) guards against any stray negative fill value.
+_LOG1P_FEATURE_CHANNELS: frozenset[str] = frozenset({"flow_accumulation"})
+
+
+def _feature_values(features_ds: Any, channel: str) -> np.ndarray:
+    """Return ``channel`` as float64, log1p'd first when it is heavy-tailed."""
+    values = np.asarray(features_ds[channel].values, dtype="float64")
+    if channel in _LOG1P_FEATURE_CHANNELS:
+        values = np.log1p(np.clip(values, 0.0, None))
+    return values
+
 
 def compute_norm_stats(
     features_ds: Any, *, date_range: tuple[str, str] | None = None
@@ -27,16 +41,17 @@ def compute_norm_stats(
     ``features_ds`` is an xarray ``Dataset`` (or any mapping exposing the channel
     names as arrays). When ``date_range`` (inclusive ISO ``(start, end)``) is
     given and the dataset has a ``time`` coordinate, statistics are computed over
-    that window only (train-range stats -- no val/test leakage). A near-zero
-    standard deviation is clamped to ``1.0`` so :class:`Normalizer` never divides
-    by zero.
+    that window only (train-range stats -- no val/test leakage). Channels in
+    :data:`_LOG1P_FEATURE_CHANNELS` are log1p'd before the mean/std are taken
+    (see :class:`Normalizer`). A near-zero standard deviation is clamped to
+    ``1.0`` so :class:`Normalizer` never divides by zero.
     """
     features_ds = _slice_time(features_ds, date_range)
     stats: dict[str, dict[str, float]] = {}
     for channel in schema.FEATURE_CHANNELS:
         if channel not in features_ds:
             raise KeyError(f"feature channel '{channel}' missing from dataset")
-        values = np.asarray(features_ds[channel].values, dtype="float64")
+        values = _feature_values(features_ds, channel)
         std = float(np.nanstd(values))
         stats[channel] = {
             "mean": float(np.nanmean(values)),
@@ -113,7 +128,9 @@ class Normalizer:
 
     Accepts ``(C, T, H, W)`` or ``(C, H, W)`` NumPy arrays or torch tensors; the
     channel axis is first and must match :data:`nowcast.schema.FEATURE_CHANNELS`.
-    :meth:`inverse` undoes the transform.
+    Channels in :data:`_LOG1P_FEATURE_CHANNELS` (heavy-tailed, e.g.
+    ``flow_accumulation``) are ``log1p``'d before the z-score and ``expm1``'d
+    back on :meth:`inverse`, matching the stats from :func:`compute_norm_stats`.
     """
 
     def __init__(self, stats: dict[str, dict[str, float]]) -> None:
@@ -124,6 +141,11 @@ class Normalizer:
         self.std = np.asarray(
             [stats[c]["std"] for c in schema.FEATURE_CHANNELS], dtype="float32"
         )
+        self._log1p_idx = [
+            i
+            for i, c in enumerate(schema.FEATURE_CHANNELS)
+            if c in _LOG1P_FEATURE_CHANNELS
+        ]
 
     @staticmethod
     def _channel_shape(x: np.ndarray | torch.Tensor) -> tuple[int, ...]:
@@ -139,8 +161,37 @@ class Normalizer:
             return mean.reshape(shape), std.reshape(shape)
         return self.mean.reshape(shape), self.std.reshape(shape)
 
+    def _pre_log1p(self, x: np.ndarray | torch.Tensor) -> np.ndarray | torch.Tensor:
+        """Apply ``log1p`` to the heavy-tailed channels (channel axis 0)."""
+        if not self._log1p_idx:
+            return x
+        if isinstance(x, torch.Tensor):
+            x = x.clone()
+            for idx in self._log1p_idx:
+                x[idx] = torch.log1p(torch.clamp(x[idx], min=0.0))
+            return x
+        x = np.array(x, dtype="float32", copy=True)
+        for idx in self._log1p_idx:
+            x[idx] = np.log1p(np.clip(x[idx], 0.0, None))
+        return x
+
+    def _post_expm1(self, x: np.ndarray | torch.Tensor) -> np.ndarray | torch.Tensor:
+        """Undo :meth:`_pre_log1p` on the heavy-tailed channels."""
+        if not self._log1p_idx:
+            return x
+        if isinstance(x, torch.Tensor):
+            x = x.clone()
+            for idx in self._log1p_idx:
+                x[idx] = torch.expm1(x[idx])
+            return x
+        x = np.array(x, copy=True)
+        for idx in self._log1p_idx:
+            x[idx] = np.expm1(x[idx])
+        return x
+
     def __call__(self, x: np.ndarray | torch.Tensor) -> np.ndarray | torch.Tensor:
         """Normalise ``x``."""
+        x = self._pre_log1p(x)
         mean, std = self._params(x)
         if isinstance(x, torch.Tensor):
             return (x - mean) / std
@@ -150,5 +201,7 @@ class Normalizer:
         """Undo :meth:`__call__`."""
         mean, std = self._params(x)
         if isinstance(x, torch.Tensor):
-            return x * std + mean
-        return np.asarray(x, dtype="float32") * std + mean
+            raw = x * std + mean
+        else:
+            raw = np.asarray(x, dtype="float32") * std + mean
+        return self._post_expm1(raw)

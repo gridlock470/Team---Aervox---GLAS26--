@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+
 import torch
 from torch import nn
 
@@ -130,13 +132,17 @@ def expected_calibration_error(
     *,
     target_threshold: float | None = None,
 ) -> float:
-    """Weighted mean gap between confidence and accuracy across bins (hard target)."""
+    """Weighted mean gap between confidence and accuracy across bins (hard target).
+
+    ``nan`` on the empty-tensor edge case -- there is no calibration to report,
+    which is distinct from perfect (``0.0``) calibration.
+    """
     prob = _flatten(probs)
     target = _hard_targets(targets, target_threshold)
     edges = _bin_edges(n_bins)
     total = prob.numel()
     if total == 0:
-        return 0.0
+        return math.nan
     ece = torch.tensor(0.0)
     for i in range(n_bins):
         low, high = edges[i], edges[i + 1]

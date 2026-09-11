@@ -146,7 +146,7 @@ def test_configure_optimizers_is_adamw_and_cosine():
 def test_train_config_parses_and_builds():
     cfg = load_config(_CONFIG)
     assert cfg["model"]["backbone"]["hidden"] == 16
-    cfg["data"] = {"source": "synthetic", "n_hours": 56, "batch_size": 2}
+    cfg["data"] = {"source": "synthetic", "n_hours": 90, "batch_size": 2}
     datamodule, module = build(cfg)
     assert isinstance(module, LitNowcast)
     datamodule.setup("fit")
