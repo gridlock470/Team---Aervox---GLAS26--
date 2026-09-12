@@ -122,6 +122,36 @@
 }
 :root[data-theme="light"] .login-btn{ color:#FFFFFF; }
 
+.account-block{
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+}
+.account-name{
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  font-size:12.5px;
+  font-weight:700;
+  color:var(--ink);
+}
+.account-name i{ color:var(--accent-bright); }
+
+/* Log Out reuses the Log In button's shape but drops the gold fill --
+   signing out is a neutral action, not the console's "primary" affordance. */
+.login-btn.is-logout{
+  background:var(--panel-raised);
+  color:var(--ink-dim);
+  border:1px solid var(--line);
+  box-shadow:none;
+}
+.login-btn.is-logout:hover{
+  color:var(--ink);
+  border-color:var(--line-strong);
+  transform:none;
+  box-shadow:none;
+}
+
 /* Theme toggle. Neutral chrome only -- colour on this console means severity,
    and a display preference is not a hazard. */
 .theme-toggle{

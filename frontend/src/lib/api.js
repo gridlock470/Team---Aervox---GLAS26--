@@ -1,0 +1,37 @@
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000'
+
+async function request(path, options) {
+  let res
+  try {
+    res = await fetch(`${API_BASE}${path}`, {
+      headers: { 'Content-Type': 'application/json' },
+      ...options,
+    })
+  } catch {
+    throw new Error('Cannot reach the auth server. Is it running?')
+  }
+
+  const body = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(body.error || 'Something went wrong.')
+  return body
+}
+
+export function register({ username, email, password }) {
+  return request('/api/auth/register', {
+    method: 'POST',
+    body: JSON.stringify({ username, email, password }),
+  })
+}
+
+export function login({ login, password }) {
+  return request('/api/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ login, password }),
+  })
+}
+
+export function fetchMe(token) {
+  return request('/api/auth/me', {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+}
