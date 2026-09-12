@@ -1,0 +1,95 @@
+/* ---------- telemetry panel ----------
+   The pasted mock's "Technical Telemetry & Impact Grid": three stat cards
+   with a metallic gold top-rule, then a station table. Reuses the console's
+   shared tokens rather than the mock's own literal hexes, so it matches
+   whichever theme (Obsidian / Alabaster) is active. */
+.telemetry-panel{ display:flex; flex-direction:column; gap:12px; }
+
+.telemetry-context{ font-size:12px; color:var(--ink-dim); }
+.telemetry-context .mono{ color:var(--ink); }
+
+.telemetry-cards{
+  display:grid;
+  grid-template-columns:repeat(3, 1fr);
+  gap:10px;
+}
+
+.detail-card{
+  position:relative;
+  background:var(--panel-raised);
+  border:1px solid var(--line);
+  border-radius:var(--radius-sm);
+  padding:12px;
+  display:flex;
+  flex-direction:column;
+  gap:5px;
+  overflow:hidden;
+}
+.detail-card::before{
+  content:'';
+  position:absolute;
+  top:0; left:0; right:0;
+  height:2px;
+  background:linear-gradient(90deg, transparent, var(--accent-bright), transparent);
+}
+.detail-card:hover{ border-color:var(--line-strong); }
+
+.detail-card-header{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  font-size:10px;
+  font-weight:800;
+  text-transform:uppercase;
+  letter-spacing:0.05em;
+  color:var(--ink-dim);
+}
+.detail-card-header i{ color:var(--accent-bright); }
+
+.detail-value{
+  font-size:1.35rem;
+  font-weight:800;
+  color:var(--accent-bright);
+  letter-spacing:-0.02em;
+}
+
+.detail-subtext{ font-size:11px; color:var(--ink-dim); line-height:1.4; }
+
+.detail-table-card{
+  background:var(--panel-raised);
+  border:1px solid var(--line);
+  border-radius:var(--radius-sm);
+  padding:10px;
+  overflow-x:auto;
+}
+.detail-table-card table{ width:100%; border-collapse:collapse; font-size:12px; }
+.detail-table-card th,
+.detail-table-card td{
+  text-align:left;
+  padding:8px 10px;
+  border-bottom:1px solid var(--line);
+  white-space:nowrap;
+}
+.detail-table-card th{
+  color:var(--ink-dim);
+  font-weight:800;
+  text-transform:uppercase;
+  letter-spacing:0.05em;
+  font-size:10px;
+}
+.detail-table-card td{ color:var(--ink); font-weight:500; }
+.detail-table-card tbody tr:hover{ background:var(--panel-hover); }
+
+.status-pill{
+  display:inline-block;
+  padding:3px 9px;
+  border-radius:4px;
+  font-size:10px;
+  font-weight:800;
+  letter-spacing:0.04em;
+  color:#fff;
+}
+
+@media (max-width: 1100px){
+  .telemetry-cards{ grid-template-columns:1fr; }
+}

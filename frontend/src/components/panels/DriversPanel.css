@@ -1,0 +1,174 @@
+/* ---------- drivers panel ---------- */
+/* Neutral sequential tokens only. Severity colour is never used here:
+   a driver contribution is not a hazard level. */
+
+.drivers-panel .dp-head-step{
+  font-size:11.5px;
+  color:var(--ink-dim);
+  flex:none;
+}
+
+.dp-context{
+  font-size:12px;
+  color:var(--ink-dim);
+  margin-bottom:12px;
+}
+.dp-context .mono{ color:var(--ink); }
+
+/* selected lead-time step, stated once for the whole list */
+.dp-legend{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  padding-bottom:9px;
+  border-bottom:1px solid var(--line);
+  margin-bottom:2px;
+}
+.dp-legend-label{
+  font-size:11.5px;
+  color:var(--ink-faint);
+  flex:none;
+}
+.dp-legend-steps{ display:flex; align-items:center; gap:4px; }
+.dp-legend-step{
+  font-size:11px;
+  color:var(--ink-faint);
+  padding:2px 6px;
+  border:1px solid transparent;
+  border-radius:4px;
+  transition:color 140ms ease, border-color 140ms ease, background-color 140ms ease;
+}
+.dp-legend-step[data-active="true"]{
+  color:var(--ink);
+  font-weight:600;
+  background:var(--accent-wash);
+  border-color:var(--line-strong);
+}
+
+/* ranked list — hairlines, no cards */
+.dp-list{
+  list-style:none;
+  margin:0;
+  padding:0;
+}
+.dp-row{
+  padding:11px 0 10px;
+  border-bottom:1px solid var(--line-soft);
+}
+.dp-row:last-child{ border-bottom:0; padding-bottom:4px; }
+
+.dp-row-top{
+  display:flex;
+  align-items:baseline;
+  gap:8px;
+  margin-bottom:7px;
+}
+.dp-rank{
+  font-size:11px;
+  color:var(--ink-faint);
+  flex:none;
+  width:11px;
+}
+.dp-label{
+  font-size:12.5px;
+  color:var(--ink-dim);
+  flex:1 1 auto;
+  min-width:0;
+}
+.dp-value{
+  font-size:14px;
+  color:var(--ink);
+  flex:none;
+  white-space:nowrap;
+}
+.dp-unit{
+  font-size:11px;
+  color:var(--ink-faint);
+}
+
+/* the dominant driver reads first without changing hue */
+.dp-row[data-lead="true"] .dp-label{ color:var(--ink); }
+.dp-row[data-lead="true"] .dp-value{ font-size:15px; }
+.dp-row[data-lead="true"] .dp-rank{ color:var(--ink-dim); }
+
+.dp-row-bottom{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding-left:19px;
+}
+.dp-track{
+  flex:1 1 auto;
+  min-width:60px;
+  height:6px;
+  border-radius:3px;
+  background:var(--seq-soft);
+  overflow:hidden;
+  display:block;
+}
+.dp-fill{
+  display:block;
+  height:100%;
+  border-radius:3px;
+  background:var(--seq);
+  transition:width 160ms ease;
+}
+.dp-row[data-lead="true"] .dp-track{ height:8px; border-radius:4px; }
+.dp-row[data-lead="true"] .dp-fill{ border-radius:4px; }
+
+.dp-weight{
+  flex:none;
+  font-size:11.5px;
+  color:var(--ink-dim);
+  width:30px;
+  text-align:right;
+}
+
+/* sparkline — the driver's own four-point series */
+.dp-spark{
+  flex:none;
+  display:block;
+  overflow:visible;
+}
+.dp-spark-empty{
+  flex:none;
+  display:block;
+  width:56px;
+  height:18px;
+}
+.dp-spark-line{
+  fill:none;
+  stroke:var(--seq);
+  stroke-width:1.2;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+.dp-spark-dot{ fill:var(--seq-soft); }
+.dp-spark-stem{
+  stroke:var(--line);
+  stroke-width:1;
+}
+.dp-spark-now{ fill:var(--ink); }
+
+.dp-row-delta{
+  padding-left:19px;
+  margin-top:6px;
+  font-size:11px;
+  color:var(--ink-faint);
+}
+.dp-row-delta .mono{ color:var(--ink-dim); }
+
+.dp-note{
+  margin-top:12px;
+  padding-top:10px;
+  border-top:1px solid var(--line);
+  font-size:11px;
+  line-height:1.45;
+  color:var(--ink-faint);
+}
+
+@media (prefers-reduced-motion: reduce){
+  .dp-fill,
+  .dp-legend-step{ transition:none; }
+}

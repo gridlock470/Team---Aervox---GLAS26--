@@ -1,0 +1,151 @@
+/* ---------- alerts panel ---------- */
+/* Renders its own panel chrome. Do not wrap it in .panel. */
+.alerts-panel{
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  overflow:hidden;
+}
+
+.ap-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:baseline;
+  gap:10px;
+  padding:13px 16px;
+  border-bottom:1px solid var(--line);
+}
+.ap-head h2{ font-size:13px; font-weight:600; color:var(--ink); }
+.ap-count{ font-size:11.5px; color:var(--ink-faint); flex:none; }
+
+.ap-note{
+  padding:8px 16px 9px;
+  font-size:11.5px;
+  color:var(--ink-faint);
+  border-bottom:1px solid var(--line-soft);
+}
+
+.ap-empty{
+  padding:14px 16px;
+  font-size:12px;
+  color:var(--ink-dim);
+}
+
+.ap-list{ list-style:none; margin:0; padding:0; }
+
+/* severity is the only colour on the row: one 3px left rule */
+.ap-item{
+  border-left:3px solid var(--sev, var(--line));
+  border-bottom:1px solid var(--line-soft);
+}
+.ap-item:last-child{ border-bottom:0; }
+
+/* ---------- collapsed row: severity, what, where, when ---------- */
+.ap-row{
+  display:grid;
+  grid-template-columns:1fr 12px;
+  grid-template-areas:
+    "top      chev"
+    "headline chev"
+    "where    chev";
+  align-items:start;
+  gap:3px 10px;
+  width:100%;
+  margin:0;
+  padding:10px 13px 11px;
+  background:transparent;
+  border:0;
+  text-align:left;
+  cursor:pointer;
+  transition:background-color 140ms ease;
+}
+.ap-row:hover{ background:var(--panel-hover); }
+.ap-row:focus-visible{ outline:2px solid var(--focus); outline-offset:-2px; }
+
+.ap-line-top{
+  grid-area:top;
+  display:flex;
+  justify-content:space-between;
+  align-items:baseline;
+  gap:8px;
+}
+/* The severity word repeats the left rule in language, for anyone who cannot
+   separate the hues. Ink, not chroma: the rule already carries the colour. */
+.ap-sev{
+  font-size:10.5px;
+  font-weight:700;
+  letter-spacing:0.07em;
+  text-transform:uppercase;
+  color:var(--ink);
+}
+.ap-when{ font-size:11.5px; color:var(--ink-dim); flex:none; }
+
+.ap-headline{
+  grid-area:headline;
+  font-size:13px;
+  font-weight:500;
+  line-height:1.35;
+  color:var(--ink);
+}
+.ap-where{
+  grid-area:where;
+  font-size:11.5px;
+  line-height:1.35;
+  color:var(--ink-dim);
+}
+
+.ap-chev{
+  grid-area:chev;
+  align-self:center;
+  justify-self:end;
+  width:6px;
+  height:6px;
+  border-right:1.5px solid var(--ink-faint);
+  border-bottom:1.5px solid var(--ink-faint);
+  transform:rotate(45deg);
+  transition:transform 150ms ease;
+}
+.ap-row[aria-expanded="true"] .ap-chev{ transform:rotate(-135deg); }
+
+/* ---------- expanded detail ---------- */
+.ap-detail{
+  padding:0 14px 12px 13px;
+  animation:ap-reveal 150ms ease;
+}
+@keyframes ap-reveal{
+  from{ opacity:0; transform:translateY(-2px); }
+  to{ opacity:1; transform:none; }
+}
+
+.ap-facts{
+  margin:0;
+  display:grid;
+  grid-template-columns:auto 1fr;
+  gap:5px 12px;
+  font-size:11.5px;
+  line-height:1.45;
+}
+.ap-facts dt{ color:var(--ink-faint); }
+.ap-facts dd{ margin:0; color:var(--ink-dim); }
+.ap-timing{ display:block; margin-top:2px; color:var(--ink-faint); }
+
+.ap-action{
+  margin-top:10px;
+  padding-top:9px;
+  border-top:1px solid var(--line-soft);
+  font-size:12px;
+  line-height:1.45;
+  color:var(--ink);
+}
+.ap-action-label{
+  display:block;
+  margin-bottom:2px;
+  font-size:11.5px;
+  color:var(--ink-faint);
+}
+
+@media (prefers-reduced-motion: reduce){
+  .ap-row,
+  .ap-chev{ transition:none; }
+  .ap-detail{ animation:none; }
+}

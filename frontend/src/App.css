@@ -1,0 +1,236 @@
+/* ---------- alert border glow ----------
+   Pulsing red vignette around the whole viewport while a sound alert is
+   actively sounding (severity above green, alerts armed). Deliberately
+   plain red rather than severity-tinted like the header button -- this is
+   the "look at the screen right now" channel, not a detail readout. */
+.alert-border-glow{
+  position:fixed;
+  inset:0;
+  z-index:200;
+  pointer-events:none;
+  box-shadow:
+    inset 0 0 0 4px rgba(224,49,80,0.85),
+    inset 0 0 70px 12px rgba(224,49,80,0.5);
+  animation:alert-border-pulse 1s ease-in-out infinite;
+}
+@keyframes alert-border-pulse{
+  0%,100%{
+    box-shadow:
+      inset 0 0 0 4px rgba(224,49,80,0.85),
+      inset 0 0 70px 12px rgba(224,49,80,0.5);
+  }
+  50%{
+    box-shadow:
+      inset 0 0 0 7px rgba(224,49,80,1),
+      inset 0 0 110px 22px rgba(224,49,80,0.75);
+  }
+}
+@media (prefers-reduced-motion: reduce){
+  .alert-border-glow{ animation:none; }
+}
+
+/* ---------- shell ----------
+   Full-bleed operational console: the map is the hero and owns the screen.
+   Everything that is not the map is either a slim selector or lives in the
+   dock, behind a tab. Nothing here scrolls the page.
+
+   The shell now carries an 12px gutter. Previously the header title and the
+   hazard list sat hard against the bezel, which reads as an unfinished crop
+   on a wall display and gives the eye no edge to rest on. */
+.shell{
+  height:100vh;
+  display:grid;
+  grid-template-columns:300px minmax(0,1fr);
+  grid-template-rows:auto minmax(0,1.15fr) auto minmax(170px,0.85fr);
+  grid-template-areas:
+    "header header"
+    "navrail stage"
+    "navrail telemetry"
+    "navrail dock";
+  gap:16px;
+  padding:16px;
+  background:var(--bg);
+  overflow:hidden;
+}
+
+.shell > header{ grid-area:header; }
+.shell > .nav-rail{ grid-area:navrail; overflow-y:auto; }
+.shell > .stage{ grid-area:stage; }
+.shell > .telemetry-section{ grid-area:telemetry; overflow:hidden; display:flex; flex-direction:column; }
+.shell > .dock{ grid-area:dock; }
+
+/* Telemetry's own section, not a dock tab -- it earns more room than a
+   panel-body scaled to fit whatever the dock has left over, so its table
+   scrolls internally rather than the section being squeezed to card-height. */
+.telemetry-section .panel-body{
+  overflow-y:auto;
+  max-height:280px;
+}
+.panel-head h2{ display:flex; align-items:center; gap:9px; }
+.panel-head h2 i{ color:var(--accent-bright); }
+
+/* The map region. MapPanel's own root carries .hero, so this wrapper exists
+   only to give the lead-time control a positioning context over the map. */
+.stage{
+  position:relative;
+  display:flex;
+  min-width:0;
+  min-height:0;
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  overflow:hidden;
+  background:var(--panel);
+}
+
+/* Click-to-fullscreen: the map's own container grows to cover the viewport.
+   Kept on .stage (rather than MapPanel's own root) so the lead-time timeline
+   strip -- a sibling overlay positioned over .stage -- comes along with it
+   instead of being left behind under a fixed-position map. The transform
+   animation between the two states is driven from App.jsx (a FLIP transition
+   applied to this same element), this rule only owns the two end states. */
+.stage.is-fullscreen{
+  position:fixed;
+  inset:12px;
+  z-index:80;
+  border-radius:var(--radius);
+  box-shadow:0 24px 64px rgba(0,0,0,0.55);
+}
+
+/* Let the map fill the stage instead of its authored fixed height, and drop
+   the card chrome -- inside a full-bleed console the map is the surface,
+   not a panel sitting on one. */
+.stage > .hero{
+  flex:1;
+  min-width:0;
+  min-height:0;
+  border:0;
+  border-radius:0;
+  background:transparent;
+}
+.stage > .hero{ display:flex; flex-direction:column; }
+.stage .map-wrap{ flex:1; min-height:0; }
+.stage .map-canvas{ height:100%; }
+
+/* The basemap is a light cartographic style; the console is near-black. Tone
+   the raster down so the severity overlay is the brightest thing on screen --
+   the map is context, the hazard is the message. Applied to MapLibre's own
+   canvas only, so the deck.gl overlay keeps its true colours. */
+.stage .maplibregl-canvas{
+  filter:var(--map-filter);
+}
+
+/* Legend becomes a map overlay instead of a strip under it: it is a key for
+   the map, and it was being clipped at the foot of a full-height stage. */
+.stage .map-legend{
+  position:absolute;
+  left:14px;
+  bottom:14px;
+  z-index:5;
+  flex-direction:column;
+  gap:6px;
+  padding:10px 12px;
+  border-top:0;
+  border:1px solid var(--line);
+  border-radius:var(--radius-sm);
+  background:var(--overlay-bg);
+  backdrop-filter:blur(8px);
+}
+
+/* Lead time sits over the map rather than taking a row of its own --
+   it is a control for the map, so it belongs on it. */
+.stage-overlay{
+  position:absolute;
+  left:50%;
+  bottom:14px;
+  transform:translateX(-50%);
+  z-index:5;
+  width:max-content;
+  max-width:calc(100% - 32px);
+  background:var(--overlay-bg);
+  border:1px solid var(--line);
+  border-radius:var(--radius-sm);
+  padding:9px 12px;
+  backdrop-filter:blur(8px);
+}
+/* The strip was authored as a page-width footer; inside the overlay it is a
+   compact control, so its footer rule and provenance note are not wanted. */
+.stage-overlay .timeline-strip{ border-top:0; padding-top:0; }
+.stage-overlay .provenance{ display:none; }
+
+@media (max-width: 1100px){
+  .shell{
+    grid-template-columns:1fr;
+    grid-template-rows:auto 44vh auto minmax(0,1fr);
+    grid-template-areas:
+      "header"
+      "stage"
+      "telemetry"
+      "dock";
+    overflow-y:auto;
+  }
+  .shell > .nav-rail{ display:none; }
+  .telemetry-section .panel-body{ max-height:none; }
+}
+
+/* ---------- dock, as a bottom panel ----------
+   The pasted mock stacks the detail grid under the map rather than beside
+   it; Dock.css still ships side-rail defaults (fixed width, width-based
+   collapse), so those are overridden here at the layout seam instead of
+   rewriting the component for a bottom-only home. */
+.shell > .dock{
+  width:100%;
+  align-self:stretch;
+}
+.shell > .dock.is-collapsed{ width:100%; height:44px; }
+
+/* ---------- panels (shared) ---------- */
+.panel{
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+}
+.panel-head{
+  padding:15px 18px;
+  border-bottom:1px solid var(--line);
+  display:flex;
+  justify-content:space-between;
+  align-items:baseline;
+  gap:10px;
+}
+.panel-head h2{
+  font-size:12px;
+  font-weight:700;
+  letter-spacing:0.06em;
+  text-transform:uppercase;
+  color:var(--ink);
+}
+.panel-body{ padding:16px 18px; }
+
+/* ---------- dock panels ----------
+   The dock supplies the frame, so panels inside it must not draw their own.
+   The panel components arrived with two different conventions -- some use the
+   shared .panel class, some paint their own border -- and this reconciles both
+   at the seam rather than editing five components to agree. */
+.dock-body .panel,
+.dock-body .alerts-panel,
+.dock-body .cap-panel{
+  background:transparent;
+  border:0;
+  border-radius:0;
+}
+.dock-body .panel-head{
+  padding:0 0 10px;
+  border-bottom:1px solid var(--line-soft);
+}
+.dock-body .panel-body{ padding:12px 0 0; }
+
+/* Five tabs have to fit 340px without the strip scrolling and clipping the
+   first and last labels. Tighten the tabs rather than widen the dock -- the
+   map is the thing that deserves the pixels. */
+.dock:not(.is-collapsed) .dock-tab{
+  padding-left:7px;
+  padding-right:7px;
+  font-size:11.5px;
+  letter-spacing:-0.005em;
+  white-space:nowrap;
+}
