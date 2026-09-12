@@ -60,17 +60,49 @@ def _surface_level_index(ds: xr.Dataset) -> int:
     return int(np.argmax(np.asarray(ds[_LEVEL_DIM].values)))
 
 
-def _interp_to_height(var: xr.DataArray, height_agl: xr.DataArray, target_m: float) -> xr.DataArray:
-    def _col(v_col: np.ndarray, h_col: np.ndarray) -> float:
-        order = np.argsort(h_col)
-        return float(np.interp(target_m, h_col[order], v_col[order]))
+def _interp_level_last(
+    values: np.ndarray, heights: np.ndarray, target_m: float
+) -> np.ndarray:
+    """``np.interp`` of ``values`` onto ``target_m``, vectorised over all columns.
 
+    ``values`` and ``heights`` carry the vertical dimension LAST (the layout
+    :func:`xarray.apply_ufunc` hands a core dim). Columns are sorted by height
+    independently, then linearly interpolated; the fraction is clipped to
+    ``[0, 1]`` so targets outside a column's range clamp to its end value,
+    exactly as :func:`numpy.interp` does.
+    """
+    order = np.argsort(heights, axis=-1)
+    h_sorted = np.take_along_axis(heights, order, axis=-1)
+    v_sorted = np.take_along_axis(values, order, axis=-1)
+
+    n_level = h_sorted.shape[-1]
+    upper = np.clip((h_sorted < target_m).sum(axis=-1), 1, n_level - 1)
+    lower = upper - 1
+    h_lo = np.take_along_axis(h_sorted, lower[..., None], axis=-1)[..., 0]
+    h_hi = np.take_along_axis(h_sorted, upper[..., None], axis=-1)[..., 0]
+    v_lo = np.take_along_axis(v_sorted, lower[..., None], axis=-1)[..., 0]
+    v_hi = np.take_along_axis(v_sorted, upper[..., None], axis=-1)[..., 0]
+
+    span = h_hi - h_lo
+    frac = np.where(span > 0.0, (target_m - h_lo) / np.where(span > 0.0, span, 1.0), 0.0)
+    return v_lo + np.clip(frac, 0.0, 1.0) * (v_hi - v_lo)
+
+
+def _interp_to_height(var: xr.DataArray, height_agl: xr.DataArray, target_m: float) -> xr.DataArray:
+    """Interpolate ``var`` to ``target_m`` metres AGL along the level dimension.
+
+    ``dask="parallelized"`` is required: the datacube is opened lazily from
+    Zarr, and ``apply_ufunc`` refuses a chunked array without it. The core
+    function is already vectorised, so ``vectorize=True`` (a Python loop over
+    all 8.2 M columns) is deliberately *not* used.
+    """
     return xr.apply_ufunc(
-        _col,
+        _interp_level_last,
         var,
         height_agl,
+        kwargs={"target_m": float(target_m)},
         input_core_dims=[[_LEVEL_DIM], [_LEVEL_DIM]],
-        vectorize=True,
+        dask="parallelized",
         output_dtypes=[np.float64],
     )
 
