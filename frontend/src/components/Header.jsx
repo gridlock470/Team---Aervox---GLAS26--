@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { REGION_META } from '../data/nowcastData.js'
 import './Header.css'
 
@@ -29,6 +29,38 @@ function formatClock(totalSeconds) {
 export default function Header({ region, onRegionChange }) {
   const [clockSeconds, setClockSeconds] = useState(BASE_TOTAL_SECONDS)
   const [theme, setTheme] = useState(readStoredTheme)
+  const [query, setQuery] = useState('')
+  const [open, setOpen] = useState(false)
+  const searchRef = useRef(null)
+
+  const activeMeta = REGION_META.find((m) => m.id === region)
+
+  const matches = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    if (!q) return REGION_META
+    return REGION_META.filter((m) => m.label.toLowerCase().includes(q))
+  }, [query])
+
+  function pick(meta) {
+    onRegionChange(meta.id)
+    setQuery('')
+    setOpen(false)
+  }
+
+  function handleSubmit(e) {
+    e.preventDefault()
+    if (matches.length) pick(matches[0])
+  }
+
+  // Close the suggestion list on an outside click -- a search box that stays
+  // open until you click its own suggestion is a search box that traps focus.
+  useEffect(() => {
+    function onDocClick(e) {
+      if (searchRef.current && !searchRef.current.contains(e.target)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onDocClick)
+    return () => document.removeEventListener('mousedown', onDocClick)
+  }, [])
 
   useEffect(() => {
     const id = setInterval(() => {
@@ -56,22 +88,37 @@ export default function Header({ region, onRegionChange }) {
           <p>Precursor detection for severe thunderstorms, cloudbursts and flash floods, 2&ndash;6 hours ahead of onset.</p>
         </div>
       </div>
-      <div className="header-controls">
-        <div className="area-selector" role="group" aria-label="Region">
-          <span className="area-label"><i className="fa-solid fa-crosshairs" aria-hidden="true"></i> Region</span>
-          <div className="segmented">
-            {REGION_META.map((meta) => (
-              <button
-                key={meta.id}
-                type="button"
-                aria-pressed={region === meta.id}
-                onClick={() => onRegionChange(meta.id)}
-              >
-                {meta.label}
-              </button>
+
+      <form className="region-search" ref={searchRef} role="search" onSubmit={handleSubmit}>
+        <i className="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+        <input
+          type="text"
+          value={open ? query : query || activeMeta?.label || ''}
+          placeholder="Search region or city&hellip;"
+          aria-label="Search region or city"
+          onFocus={() => { setOpen(true); setQuery('') }}
+          onChange={(e) => { setQuery(e.target.value); setOpen(true) }}
+        />
+        {open && (
+          <ul className="region-search-list" role="listbox">
+            {matches.length === 0 && <li className="region-search-empty">No region matches &ldquo;{query}&rdquo;</li>}
+            {matches.map((meta) => (
+              <li key={meta.id}>
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={region === meta.id}
+                  onClick={() => pick(meta)}
+                >
+                  <i className="fa-solid fa-location-dot" aria-hidden="true"></i> {meta.label}
+                </button>
+              </li>
             ))}
-          </div>
-        </div>
+          </ul>
+        )}
+      </form>
+
+      <div className="header-controls">
         <button
           type="button"
           className="theme-toggle"

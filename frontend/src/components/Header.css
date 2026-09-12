@@ -62,30 +62,78 @@
   flex-wrap:wrap;
 }
 
-/* Area selector: label + the existing segmented control, boxed like the
-   pasted mock's "Region:" chip rather than left loose in the header row. */
-.area-selector{
-  display:flex;
-  align-items:center;
-  gap:8px;
+/* Region search: replaces the old segmented Uttarakhand/Delhi NCR toggle.
+   Sits right next to the brand mark -- the operator's first move on arrival
+   is "which region am I looking at", so it belongs beside the logo, not
+   buried in the control cluster on the right. */
+.region-search{
+  position:relative;
+  flex:none;
+  width:220px;
+}
+.region-search > i{
+  position:absolute;
+  left:11px;
+  top:50%;
+  transform:translateY(-50%);
+  font-size:12px;
+  color:var(--ink-faint);
+  pointer-events:none;
+}
+.region-search input{
+  width:100%;
   background:var(--panel-raised);
   border:1px solid var(--line);
   border-radius:var(--radius-sm);
-  padding:4px 8px 4px 10px;
+  padding:8px 12px 8px 30px;
+  font-size:12.5px;
+  color:var(--ink);
+  outline:none;
 }
-.area-selector:hover{ border-color:var(--line-strong); }
-.area-label{
+.region-search input::placeholder{ color:var(--ink-faint); }
+.region-search input:focus{ border-color:var(--accent-bright); box-shadow:var(--accent-wash) 0 0 0 3px; }
+
+.region-search-list{
+  position:absolute;
+  top:calc(100% + 6px);
+  left:0;
+  right:0;
+  z-index:20;
+  max-height:220px;
+  overflow-y:auto;
+  background:var(--panel-raised);
+  border:1px solid var(--line-strong);
+  border-radius:var(--radius-sm);
+  padding:4px;
+  box-shadow:0 12px 28px rgba(0,0,0,0.45);
+}
+.region-search-list li{ list-style:none; }
+.region-search-list button{
   display:flex;
   align-items:center;
-  gap:5px;
-  font-size:10.5px;
-  font-weight:800;
-  text-transform:uppercase;
-  letter-spacing:0.06em;
+  gap:7px;
+  width:100%;
+  background:transparent;
+  border:0;
+  border-radius:4px;
+  padding:8px 9px;
+  font-size:12.5px;
   color:var(--ink-dim);
+  text-align:left;
+  cursor:pointer;
 }
-.area-label i{ color:var(--accent-bright); }
-.area-selector .segmented{ border:0; padding:0; background:transparent; }
+.region-search-list button i{ color:var(--accent-bright); font-size:11px; }
+.region-search-list button:hover{ background:var(--panel-hover); color:var(--ink); }
+.region-search-list button[aria-selected="true"]{
+  background:var(--accent-wash);
+  color:var(--ink);
+  font-weight:600;
+}
+.region-search-empty{
+  padding:8px 9px;
+  font-size:12px;
+  color:var(--ink-faint);
+}
 
 /* Decorative sign-in affordance: no auth backend exists, so this never fires
    a request -- it exists to complete the console chrome the mock shows. */
@@ -137,35 +185,6 @@
 
 @media (prefers-reduced-motion: reduce){
   .theme-toggle{ transition:none; }
-}
-
-/* Region switch. Selection is gold -- it is an interface state, and gold is
-   the only thing in here allowed to say "this one". */
-.segmented{
-  display:inline-flex;
-  background:var(--panel-raised);
-  border:1px solid var(--line);
-  border-radius:var(--radius-sm);
-  padding:3px;
-  gap:2px;
-}
-.segmented button{
-  background:transparent;
-  border:0;
-  border-radius:4px;
-  padding:6px 13px;
-  font-size:12.5px;
-  font-weight:500;
-  color:var(--ink-dim);
-  cursor:pointer;
-  transition:color 140ms ease-out, background 140ms ease-out;
-}
-.segmented button:hover{ color:var(--ink); }
-.segmented button[aria-pressed="true"]{
-  background:var(--accent-wash);
-  box-shadow:inset 0 0 0 1px var(--line-strong);
-  color:var(--ink);
-  font-weight:600;
 }
 
 .status-block{
