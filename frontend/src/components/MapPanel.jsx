@@ -7,7 +7,12 @@ import './MapPanel.css'
 import { DATA, HAZARDS, timeAt } from '../data/nowcastData.js'
 import { SEV, sevFor, sevRgba, radiusMeters } from '../lib/severity.js'
 
-export default function MapPanel({ region, hazard, step }) {
+// Matches the transform duration driven on .stage in App.jsx -- kept in one
+// place so the post-transition map.resize() timeout cannot drift out of sync
+// with the CSS transition it is waiting on.
+export const FULLSCREEN_TRANSITION_MS = 320
+
+export default function MapPanel({ region, hazard, step, fullscreen, onToggleFullscreen }) {
   const containerRef = useRef(null)
   const mapRef = useRef(null)
   const overlayRef = useRef(null)
@@ -47,6 +52,34 @@ export default function MapPanel({ region, hazard, step }) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Wire the fullscreen toggle to MapLibre's own click event, not a raw DOM
+  // listener on the container -- MapLibre only fires `click` for a genuine
+  // click, never mid-drag, so this can't be triggered by someone panning the
+  // map. Bound in its own effect (rather than inside the mount effect) so it
+  // always closes over the latest onToggleFullscreen without re-mounting the
+  // map.
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !onToggleFullscreen) return
+    const handler = () => onToggleFullscreen()
+    map.on('click', handler)
+    return () => map.off('click', handler)
+  }, [mapLoaded, onToggleFullscreen])
+
+  // The container's box changes size when the fullscreen transform-transition
+  // (driven by the parent on .stage) finishes -- MapLibre renders into a
+  // canvas sized at mount/last-resize, so it has to be told to re-measure or
+  // it stays cropped to the old box. A timeout matching the CSS transition
+  // duration is the simplest reliable hook for "transition finished" here,
+  // since the transition lives on an ancestor this component doesn't own.
+  useEffect(() => {
+    if (!mapRef.current) return
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const delay = reduceMotion ? 0 : FULLSCREEN_TRANSITION_MS + 20
+    const t = setTimeout(() => mapRef.current?.resize(), delay)
+    return () => clearTimeout(t)
+  }, [fullscreen])
 
   // Rebuild deck.gl layers + fly-to-region whenever region/hazard/step change
   // (and once the map finishes its initial load).
@@ -112,7 +145,22 @@ export default function MapPanel({ region, hazard, step }) {
           <span className="pulse-dot"></span>
           <span>LIVE RADAR &amp; HAZARD ZONE MATRIX</span>
         </div>
-        <div className="map-canvas" ref={containerRef} role="img" aria-label={`${hazardName} probability map — ${regionData.title}`} />
+        {fullscreen && (
+          <button
+            type="button"
+            className="map-fullscreen-exit"
+            onClick={(e) => { e.stopPropagation(); onToggleFullscreen?.() }}
+            title="Exit fullscreen (Esc)"
+          >
+            <i className="fa-solid fa-compress" aria-hidden="true"></i> Exit fullscreen
+          </button>
+        )}
+        <div
+          className="map-canvas"
+          ref={containerRef}
+          role="img"
+          aria-label={`${hazardName} probability map — ${regionData.title}${fullscreen ? ' (fullscreen)' : ''}`}
+        />
         {hoverInfo && hoverInfo.object && (
           <div
             className="map-tooltip"

@@ -39,6 +39,20 @@
   background:var(--panel);
 }
 
+/* Click-to-fullscreen: the map's own container grows to cover the viewport.
+   Kept on .stage (rather than MapPanel's own root) so the lead-time timeline
+   strip -- a sibling overlay positioned over .stage -- comes along with it
+   instead of being left behind under a fixed-position map. The transform
+   animation between the two states is driven from App.jsx (a FLIP transition
+   applied to this same element), this rule only owns the two end states. */
+.stage.is-fullscreen{
+  position:fixed;
+  inset:12px;
+  z-index:80;
+  border-radius:var(--radius);
+  box-shadow:0 24px 64px rgba(0,0,0,0.55);
+}
+
 /* Let the map fill the stage instead of its authored fixed height, and drop
    the card chrome -- inside a full-bleed console the map is the surface,
    not a panel sitting on one. */

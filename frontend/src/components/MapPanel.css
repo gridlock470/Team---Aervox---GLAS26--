@@ -68,6 +68,30 @@
   filter:invert(1);
 }
 
+/* Visible exit affordance while fullscreen -- Escape and clicking the map
+   again also close it, but neither is discoverable on its own. */
+.map-fullscreen-exit{
+  position:absolute;
+  top:12px;
+  right:56px;
+  z-index:6;
+  display:flex;
+  align-items:center;
+  gap:7px;
+  background:var(--overlay-bg);
+  backdrop-filter:blur(8px);
+  border:1px solid var(--line-strong);
+  color:var(--ink);
+  padding:7px 13px;
+  border-radius:var(--radius-sm);
+  font-size:11px;
+  font-weight:700;
+  letter-spacing:0.03em;
+  cursor:pointer;
+  box-shadow:0 4px 16px rgba(0,0,0,0.4);
+}
+.map-fullscreen-exit:hover{ background:var(--panel-hover); }
+
 .map-tooltip{
   position:absolute;
   z-index:2;
