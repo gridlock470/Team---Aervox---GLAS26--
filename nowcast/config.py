@@ -186,18 +186,32 @@ RANDOM_SEED: int = 1234
 # more than training signal.
 # Boundaries chosen from measured event dates, not round numbers. Cloudburst
 # fires on exactly EIGHT dates in the whole record -- 2018-06-26, 07-01, 07-21,
-# 07-25, 08-11, 08-12, 08-13, 08-17 -- and September has none at all. An
-# earlier cut ending test in September therefore gave test ZERO cloudburst and
-# zero flash-flood windows, leaving two of three hazards with no held-out
-# evaluation at all.
+# 07-25, 08-11, 08-12, 08-13, 08-17 -- and September has none at all. Flash
+# flood fires on exactly THREE dates -- 07-01, 08-12, 08-13 -- all before
+# 08-14. An earlier cut ending val on 08-14 (test starting 08-15) therefore
+# gave test its one token cloudburst date (08-17) but ZERO flash-flood dates,
+# leaving that hazard with no held-out evaluation at all -- re-verified this
+# session directly against DataSet/processed/labels.zarr, not assumed from
+# the comment alone.
 #
-# These boundaries place cloudburst dates in every split (train 4, val 3,
-# test 1) while staying chronological, so no future information reaches
-# training.
+# Re-verified: the underlying rate difference between train (thunderstorm
+# 0.44%, cloudburst 0.0005%, flash_flood 0.0006%) and the Aug 6-14 window
+# (thunderstorm 2.25%, cloudburst 0.055%, flash_flood 0.124%) is a genuine
+# monsoon-intensification trend, cross-checked against raw 2h-accumulated
+# precip in DataSet/processed/datacube.zarr (weekly peak climbs from ~20-30mm
+# in April to 60-95mm by August) -- not a label/data pipeline artifact.
 #
-# Be honest about what this supports: one cloudburst date in test is token
-# coverage, not a statistically meaningful held-out score. Thunderstorm is the
-# only hazard with enough events to evaluate properly. Report it that way.
+# Moving the val/test boundary two days earlier (08-12 / 08-13, vs. the prior
+# 08-14 / 08-15) costs val one cloudburst date and one flash-flood date but
+# gains test its first-ever flash-flood date (08-13) and a second cloudburst
+# date (08-13, alongside 08-17) -- every split now has at least one date for
+# every hazard, which was not previously true. train is untouched.
+#
+# Be honest about what this still supports: one or two dates per rare hazard
+# per split is token coverage, not a statistically meaningful held-out score.
+# Thunderstorm is the only hazard with enough events to evaluate properly.
+# Report cloudburst/flash-flood skill with explicit small-n caveats until more
+# source months or another region are ingested (see docs/REVIEW_ROUND_2.md).
 TRAIN_DATE_RANGE: tuple[str, str] = ("2018-04-01", "2018-08-05")
-VAL_DATE_RANGE: tuple[str, str] = ("2018-08-06", "2018-08-14")
-TEST_DATE_RANGE: tuple[str, str] = ("2018-08-15", "2018-09-30")
+VAL_DATE_RANGE: tuple[str, str] = ("2018-08-06", "2018-08-12")
+TEST_DATE_RANGE: tuple[str, str] = ("2018-08-13", "2018-09-30")
