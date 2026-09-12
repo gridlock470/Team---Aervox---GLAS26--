@@ -81,6 +81,23 @@ export default function MapPanel({ region, hazard, step, fullscreen, onToggleFul
     return () => clearTimeout(t)
   }, [fullscreen])
 
+  // Fits the view to the currently selected region's stations -- the same
+  // region the header's search box is showing. Used both to auto-recenter
+  // on a region change and by the recenter button, so a viewer who has
+  // panned/zoomed away can always get back to "where the search box says
+  // I am" without re-picking the region.
+  function recenterToRegion() {
+    const map = mapRef.current
+    if (!map) return
+    const stations = Object.values(DATA[region].stations)
+    if (!stations.length) return
+    const bounds = stations.reduce(
+      (b, st) => b.extend([st.lng, st.lat]),
+      new maplibregl.LngLatBounds([stations[0].lng, stations[0].lat], [stations[0].lng, stations[0].lat])
+    )
+    map.fitBounds(bounds, { padding: 60, duration: 800 })
+  }
+
   // Rebuild deck.gl layers + fly-to-region whenever region/hazard/step change
   // (and once the map finishes its initial load).
   useEffect(() => {
@@ -145,14 +162,7 @@ export default function MapPanel({ region, hazard, step, fullscreen, onToggleFul
 
     if (prevRegionRef.current !== region) {
       prevRegionRef.current = region
-      const stations = Object.values(regionData.stations)
-      if (stations.length && mapRef.current) {
-        const bounds = stations.reduce(
-          (b, st) => b.extend([st.lng, st.lat]),
-          new maplibregl.LngLatBounds([stations[0].lng, stations[0].lat], [stations[0].lng, stations[0].lat])
-        )
-        mapRef.current.fitBounds(bounds, { padding: 60, duration: 800 })
-      }
+      recenterToRegion()
     }
   }, [mapLoaded, region, hazard, step])
 
@@ -184,6 +194,14 @@ export default function MapPanel({ region, hazard, step, fullscreen, onToggleFul
             <i className="fa-solid fa-compress" aria-hidden="true"></i> Exit fullscreen
           </button>
         )}
+        <button
+          type="button"
+          className="map-recenter"
+          onClick={(e) => { e.stopPropagation(); recenterToRegion() }}
+          title={`Recenter on ${regionData.title}`}
+        >
+          <i className="fa-solid fa-location-crosshairs" aria-hidden="true"></i>
+        </button>
         <div
           className="map-canvas"
           ref={containerRef}

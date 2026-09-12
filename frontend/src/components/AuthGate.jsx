@@ -1,35 +1,29 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { register, login } from '../lib/api.js'
-import './AuthModal.css'
+import './AuthGate.css'
 
 /**
- * Popup opened from the header's Log In button, offering the two entry
- * points an operator can take: create a new account, or sign in to an
- * existing one. Both hit the auth server's SQLite-backed user table.
+ * The console's front door. Nothing behind this renders until a session
+ * exists: App.jsx mounts this instead of the dashboard whenever there is no
+ * authenticated user. Signing up does NOT log you in -- it hands you back to
+ * the Sign In tab, because "create an account" and "enter the application"
+ * are two separate, deliberate steps here.
  */
-export default function AuthModal({ open, onClose, onAuthenticated }) {
+export default function AuthGate({ onAuthenticated }) {
   const [mode, setMode] = useState('signin') // 'signin' | 'signup'
   const [form, setForm] = useState({ username: '', email: '', login: '', password: '', confirm: '' })
   const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
   const [busy, setBusy] = useState(false)
-  const dialogRef = useRef(null)
-
-  useEffect(() => {
-    if (!open) return undefined
-    setError('')
-    setForm({ username: '', email: '', login: '', password: '', confirm: '' })
-    function onKey(e) {
-      if (e.key === 'Escape') onClose()
-    }
-    document.addEventListener('keydown', onKey)
-    dialogRef.current?.focus()
-    return () => document.removeEventListener('keydown', onKey)
-  }, [open, mode, onClose])
-
-  if (!open) return null
 
   function update(field) {
     return (e) => setForm((f) => ({ ...f, [field]: e.target.value }))
+  }
+
+  function switchMode(next) {
+    setMode(next)
+    setError('')
+    setNotice('')
   }
 
   async function handleSubmit(e) {
@@ -43,11 +37,16 @@ export default function AuthModal({ open, onClose, onAuthenticated }) {
 
     setBusy(true)
     try {
-      const result =
-        mode === 'signup'
-          ? await register({ username: form.username, email: form.email, password: form.password })
-          : await login({ login: form.login, password: form.password })
-      onAuthenticated(result)
+      if (mode === 'signup') {
+        await register({ username: form.username, email: form.email, password: form.password })
+        // Deliberately not authenticating here -- signup hands off to sign-in.
+        setMode('signin')
+        setNotice('Account created. Sign in to continue.')
+        setForm((f) => ({ ...f, login: f.username, password: '', confirm: '' }))
+      } else {
+        const result = await login({ login: form.login, password: form.password })
+        onAuthenticated(result)
+      }
     } catch (err) {
       setError(err.message)
     } finally {
@@ -56,39 +55,34 @@ export default function AuthModal({ open, onClose, onAuthenticated }) {
   }
 
   return (
-    <div className="auth-modal-backdrop" onMouseDown={onClose}>
-      <div
-        className="auth-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-label={mode === 'signup' ? 'Create account' : 'Sign in'}
-        ref={dialogRef}
-        tabIndex={-1}
-        onMouseDown={(e) => e.stopPropagation()}
-      >
-        <div className="auth-modal-head">
-          <div className="auth-tabs" role="tablist">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={mode === 'signin'}
-              className={mode === 'signin' ? 'auth-tab active' : 'auth-tab'}
-              onClick={() => setMode('signin')}
-            >
-              Sign In
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={mode === 'signup'}
-              className={mode === 'signup' ? 'auth-tab active' : 'auth-tab'}
-              onClick={() => setMode('signup')}
-            >
-              Create Account
-            </button>
+    <div className="auth-gate">
+      <div className="auth-gate-card">
+        <div className="auth-gate-brand">
+          <i className="fa-solid fa-cloud-bolt" aria-hidden="true"></i>
+          <div>
+            <h1>Hyperlocal Nowcast Console</h1>
+            <p>Sign in to reach the live console.</p>
           </div>
-          <button type="button" className="auth-modal-close" aria-label="Close" onClick={onClose}>
-            <i className="fa-solid fa-xmark" aria-hidden="true"></i>
+        </div>
+
+        <div className="auth-tabs" role="tablist">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === 'signin'}
+            className={mode === 'signin' ? 'auth-tab active' : 'auth-tab'}
+            onClick={() => switchMode('signin')}
+          >
+            Sign In
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === 'signup'}
+            className={mode === 'signup' ? 'auth-tab active' : 'auth-tab'}
+            onClick={() => switchMode('signup')}
+          >
+            Sign Up
           </button>
         </div>
 
@@ -105,6 +99,7 @@ export default function AuthModal({ open, onClose, onAuthenticated }) {
                   required
                   minLength={3}
                   maxLength={24}
+                  autoFocus
                 />
               </label>
               <label>
@@ -150,6 +145,7 @@ export default function AuthModal({ open, onClose, onAuthenticated }) {
                   onChange={update('login')}
                   autoComplete="username"
                   required
+                  autoFocus
                 />
               </label>
               <label>
@@ -165,10 +161,11 @@ export default function AuthModal({ open, onClose, onAuthenticated }) {
             </>
           )}
 
+          {notice && <p className="auth-notice">{notice}</p>}
           {error && <p className="auth-error" role="alert">{error}</p>}
 
           <button type="submit" className="auth-submit" disabled={busy}>
-            {busy ? 'Please wait…' : mode === 'signup' ? 'Create ID & Password' : 'Sign In'}
+            {busy ? 'Please wait…' : mode === 'signup' ? 'Create Account' : 'Sign In'}
           </button>
         </form>
       </div>

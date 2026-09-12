@@ -5,6 +5,7 @@ import TopNav from './components/TopNav.jsx'
 import MapPanel, { FULLSCREEN_TRANSITION_MS } from './components/MapPanel.jsx'
 import TimelineStrip from './components/TimelineStrip.jsx'
 import InsightModal from './components/InsightModal.jsx'
+import AuthGate from './components/AuthGate.jsx'
 import AlertsPanel from './components/panels/AlertsPanel.jsx'
 import PointsPanel from './components/panels/PointsPanel.jsx'
 import DriversPanel from './components/panels/DriversPanel.jsx'
@@ -14,6 +15,18 @@ import TelemetryPanel from './components/panels/TelemetryPanel.jsx'
 import { DATA, regionPeak } from './data/nowcastData.js'
 import { sevFor } from './lib/severity.js'
 import { startSiren, stopSiren } from './lib/alertSound.js'
+import { fetchMe } from './lib/api.js'
+
+const AUTH_KEY = 'nowcast-auth'
+
+function readStoredAuth() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(AUTH_KEY))
+    return stored?.token && stored?.user ? stored : null
+  } catch {
+    return null
+  }
+}
 
 /* Everything that is not the map, the hazard selector or the lead time lives
    behind a tab in the dock -- Telemetry included, so the map keeps the
@@ -72,7 +85,51 @@ export default function App() {
   const [activePanel, setActivePanel] = useState(null)
   const [mapFullscreen, setMapFullscreen] = useState(false)
   const [soundAlerts, setSoundAlerts] = useState(false)
+  const [auth, setAuth] = useState(readStoredAuth)
+  const [authStatus, setAuthStatus] = useState(() => (readStoredAuth() ? 'checking' : 'anonymous'))
   const stageRef = useRef(null)
+
+  // A stored token is re-validated against the server rather than trusted
+  // forever -- it can expire or the account can be gone. Nothing behind the
+  // gate mounts while this is pending, so there is no flash of the
+  // dashboard before bouncing back to sign-in.
+  useEffect(() => {
+    if (!auth?.token) return undefined
+    let cancelled = false
+    fetchMe(auth.token)
+      .then(() => { if (!cancelled) setAuthStatus('authenticated') })
+      .catch(() => {
+        if (cancelled) return
+        setAuth(null)
+        setAuthStatus('anonymous')
+        try {
+          localStorage.removeItem(AUTH_KEY)
+        } catch {
+          // Nothing to clean up if storage was never writable.
+        }
+      })
+    return () => { cancelled = true }
+  }, [auth?.token])
+
+  function handleAuthenticated({ token, user }) {
+    setAuth({ token, user })
+    setAuthStatus('authenticated')
+    try {
+      localStorage.setItem(AUTH_KEY, JSON.stringify({ token, user }))
+    } catch {
+      // Session still works for this tab even if it can't be remembered.
+    }
+  }
+
+  function handleLogOut() {
+    setAuth(null)
+    setAuthStatus('anonymous')
+    try {
+      localStorage.removeItem(AUTH_KEY)
+    } catch {
+      // Nothing to clean up if storage was never writable.
+    }
+  }
 
   const activeSeverity = sevFor(regionPeak(region, hazard, step))
   const isAlerting = soundAlerts && activeSeverity !== 'green'
@@ -136,6 +193,15 @@ export default function App() {
   const activeTab = tabs.find((t) => t.id === activePanel) ?? null
   const Panel = activeTab ? PANELS[activeTab.id] ?? TelemetryPanel : null
 
+  // The gate is the entire front screen -- nothing about the console (map,
+  // data, even the shell chrome) mounts until a session is confirmed.
+  if (authStatus === 'checking') {
+    return <div className="auth-gate"><p style={{ color: 'var(--ink-dim)' }}>Checking session&hellip;</p></div>
+  }
+  if (authStatus !== 'authenticated') {
+    return <AuthGate onAuthenticated={handleAuthenticated} />
+  }
+
   return (
     <div className="shell">
       <Header
@@ -144,6 +210,8 @@ export default function App() {
         soundAlerts={soundAlerts}
         onToggleSoundAlerts={() => setSoundAlerts((v) => !v)}
         activeSeverity={activeSeverity}
+        user={auth.user}
+        onLogOut={handleLogOut}
       />
       <TopNav
         region={region}

@@ -1,22 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { REGION_META } from '../data/nowcastData.js'
 import { ensureAudioReady } from '../lib/alertSound.js'
-import { fetchMe } from '../lib/api.js'
-import AuthModal from './AuthModal.jsx'
 import './Header.css'
 
 const THEME_KEY = 'nowcast-theme'
 const CLOCK_FORMAT_KEY = 'nowcast-clock-format'
-const AUTH_KEY = 'nowcast-auth'
-
-function readStoredAuth() {
-  try {
-    const stored = JSON.parse(localStorage.getItem(AUTH_KEY))
-    return stored?.token && stored?.user ? stored : null
-  } catch {
-    return null
-  }
-}
 
 // The console reports everything in IST, so the header clock has to as well
 // regardless of the viewer's own system timezone -- Intl handles the +05:30
@@ -65,51 +53,13 @@ function formatClock(date, clockFormat) {
   return `${formatter.format(date)} IST`
 }
 
-export default function Header({ region, onRegionChange, soundAlerts, onToggleSoundAlerts, activeSeverity }) {
+export default function Header({ region, onRegionChange, soundAlerts, onToggleSoundAlerts, activeSeverity, user, onLogOut }) {
   const [now, setNow] = useState(() => new Date())
   const [theme, setTheme] = useState(readStoredTheme)
   const [clockFormat, setClockFormat] = useState(readStoredClockFormat)
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
-  const [auth, setAuth] = useState(readStoredAuth)
-  const [authModalOpen, setAuthModalOpen] = useState(false)
   const searchRef = useRef(null)
-
-  // Re-validate a stored session on load rather than trusting the cached
-  // user forever -- the token can expire or the account can be gone.
-  useEffect(() => {
-    if (!auth?.token) return
-    fetchMe(auth.token).catch(() => {
-      setAuth(null)
-      try {
-        localStorage.removeItem(AUTH_KEY)
-      } catch {
-        // Private browsing can refuse writes; the in-memory sign-out still
-        // takes effect for this session.
-      }
-    })
-    // Only ever needs to run once per token, on load/sign-in.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [auth?.token])
-
-  function handleAuthenticated({ token, user }) {
-    setAuth({ token, user })
-    try {
-      localStorage.setItem(AUTH_KEY, JSON.stringify({ token, user }))
-    } catch {
-      // Session still works for this tab even if it can't be remembered.
-    }
-    setAuthModalOpen(false)
-  }
-
-  function handleLogOut() {
-    setAuth(null)
-    try {
-      localStorage.removeItem(AUTH_KEY)
-    } catch {
-      // Nothing to clean up if storage was never writable.
-    }
-  }
 
   const activeMeta = REGION_META.find((m) => m.id === region)
 
@@ -236,27 +186,15 @@ export default function Header({ region, onRegionChange, soundAlerts, onToggleSo
             </button>
           </div>
         </div>
-        {auth ? (
-          <div className="account-block">
-            <span className="account-name">
-              <i className="fa-solid fa-user" aria-hidden="true"></i> {auth.user.username}
-            </span>
-            <button type="button" className="login-btn is-logout" onClick={handleLogOut}>
-              <i className="fa-solid fa-right-from-bracket" aria-hidden="true"></i> Log Out
-            </button>
-          </div>
-        ) : (
-          <button type="button" className="login-btn" onClick={() => setAuthModalOpen(true)}>
-            <i className="fa-solid fa-right-to-bracket" aria-hidden="true"></i> Log In
+        <div className="account-block">
+          <span className="account-name">
+            <i className="fa-solid fa-user" aria-hidden="true"></i> {user.username}
+          </span>
+          <button type="button" className="login-btn is-logout" onClick={onLogOut}>
+            <i className="fa-solid fa-right-from-bracket" aria-hidden="true"></i> Log Out
           </button>
-        )}
+        </div>
       </div>
-
-      <AuthModal
-        open={authModalOpen}
-        onClose={() => setAuthModalOpen(false)}
-        onAuthenticated={handleAuthenticated}
-      />
     </header>
   )
 }
