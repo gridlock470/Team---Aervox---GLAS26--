@@ -7,6 +7,14 @@
       "runtimeArgs": ["run", "dev"],
       "cwd": "frontend",
       "port": 5173
+    },
+    {
+      "name": "trial",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "cwd": "trial",
+      "port": 5177,
+      "autoPort": false
     }
   ]
 }

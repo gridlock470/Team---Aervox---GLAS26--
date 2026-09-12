@@ -42,10 +42,25 @@ model:
   focal_weight: 1.0
   pos_weight: 20.0
 
-  # Left flat deliberately. Inverse-frequency hazard weights should come from
-  # losses.hazard_weights_from_base_rates over the train split, but stacking
-  # two untested rare-event levers in the first real run would make it
-  # impossible to attribute any change in the metrics.
+  # Ablated (runs/phase2_flat vs runs/phase2_invfreq, 7 epochs each, after the
+  # Phase 0 nan-epoch-aggregation fix and the Phase 1 split-boundary fix, so
+  # this is a clean read). hazard_weights_from_base_rates over TRAIN_DATE_RANGE
+  # gives thunderstorm=0.0019, cloudburst=1.523, flash_flood=1.475.
+  #
+  # Result: inverse-frequency weighting does NOT help. At epoch 6, val CSI for
+  # cloudburst and flash_flood is exactly 0.0 under BOTH configs -- despite
+  # inverse-frequency fitting those hazards far better on train (csi 0.71/0.77
+  # vs flat's 0.52/0.59), none of that survives to held-out data, the classic
+  # signature of overfitting a handful of event windows (cloudburst fires on
+  # 8 dates, flash_flood on 3, in the whole record -- see nowcast/config.py).
+  # Worse, it actively hurts the one hazard with measurable held-out signal:
+  # thunderstorm val_csi drops from 0.026 (flat) to 0.003 (inverse-freq), and
+  # val_storm_csi (skill on windows that actually contain an event) drops
+  # 0.025 -> 0.002, a 12x difference. Flat's val_frequency_bias=4.10 (over-
+  # fires) vs inverse-freq's 0.19 (under-fires) -- neither is calibrated, but
+  # flat is at least the one producing real detections.
+  #
+  # Kept flat: it is both simpler and the one that measurably wins.
   hazard_weights:
     thunderstorm: 1.0
     cloudburst: 1.0
