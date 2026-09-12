@@ -55,6 +55,11 @@ class LitNowcast(L.LightningModule):
         self.metrics = NowcastMetrics(sweep_thresholds=(0.05, 0.2, 0.5))
         self.val_metrics = NowcastMetrics()
 
+        # Per-step score buffers for the nan-aware epoch aggregation in
+        # _epoch_end -- see the comment there for why this exists instead of
+        # Lightning's built-in self.log(..., on_epoch=True) reduction.
+        self._step_scores: dict[str, list[dict[str, float]]] = {"train": [], "val": []}
+
     def forward(
         self, x: torch.Tensor, terrain: torch.Tensor | None = None
     ) -> dict[str, torch.Tensor]:
@@ -76,21 +81,52 @@ class LitNowcast(L.LightningModule):
             scores = metrics.compute(probs, y, event_mask=mask)
         batch_size = x.shape[0]
         self.log(f"{stage}_loss", loss, prog_bar=True, batch_size=batch_size)
-        self.log(f"{stage}_csi", scores["csi"], prog_bar=True, batch_size=batch_size)
-        self.log(f"{stage}_pr_auc", scores["pr_auc"], batch_size=batch_size)
+        self.log(f"{stage}_brier", scores["brier"], batch_size=batch_size)
+        if is_val and "storm/n_samples" in scores:
+            self.log("val_storm_n", scores["storm/n_samples"], batch_size=batch_size)
+        # NowcastMetrics deliberately returns nan for any batch with zero true
+        # positives for a hazard (see metrics.py) -- correct per-batch, but
+        # Lightning's default epoch reduction is a plain mean(), which is NOT
+        # nan-aware, and this installed Lightning version rejects a custom
+        # reduce_fx on a plain logged scalar ("only reduce_fx={min,max,mean,
+        # sum} are supported ... log a torchmetrics.Metric instead"). With
+        # cloudburst/flash-flood this rare, one degenerate batch in the epoch
+        # would otherwise silently poison the whole logged value to nan (this
+        # is what produced val_csi/val_csi_best/val_storm_csi = nan across a
+        # full 25-epoch run despite the split having real positives). So these
+        # keys are buffered here and aggregated with nanmean by hand in
+        # _epoch_end instead of going through self.log's own reduction.
+        self._step_scores[stage].append(scores)
+        return loss
+
+    def _epoch_end(self, stage: str) -> None:
+        buf = self._step_scores[stage]
+        if not buf:
+            return
+        is_val = stage != "train"
+
+        def agg(key: str) -> torch.Tensor:
+            values = [s[key] for s in buf if key in s]
+            if not values:
+                return torch.tensor(float("nan"))
+            return torch.nanmean(torch.tensor(values, dtype=torch.float32))
+
+        self.log(f"{stage}_csi", agg("csi"), prog_bar=True)
+        self.log(f"{stage}_pr_auc", agg("pr_auc"))
         # csi_best is meaningless without the threshold that achieved it, so the
         # two are always logged together.
-        self.log(f"{stage}_csi_best", scores["csi_best"], prog_bar=is_val,
-                 batch_size=batch_size)
-        self.log(f"{stage}_csi_best_threshold", scores["csi_best_threshold"],
-                 batch_size=batch_size)
-        self.log(f"{stage}_frequency_bias", scores["frequency_bias"], batch_size=batch_size)
-        self.log(f"{stage}_brier", scores["brier"], batch_size=batch_size)
-        if is_val and "storm/csi" in scores:
-            self.log("val_storm_csi", scores["storm/csi"], prog_bar=True,
-                     batch_size=batch_size)
-            self.log("val_storm_n", scores["storm/n_samples"], batch_size=batch_size)
-        return loss
+        self.log(f"{stage}_csi_best", agg("csi_best"), prog_bar=is_val)
+        self.log(f"{stage}_csi_best_threshold", agg("csi_best_threshold"))
+        self.log(f"{stage}_frequency_bias", agg("frequency_bias"))
+        if is_val and any("storm/csi" in s for s in buf):
+            self.log("val_storm_csi", agg("storm/csi"), prog_bar=True)
+        buf.clear()
+
+    def on_train_epoch_end(self) -> None:
+        self._epoch_end("train")
+
+    def on_validation_epoch_end(self) -> None:
+        self._epoch_end("val")
 
     def training_step(self, batch: tuple, batch_idx: int) -> torch.Tensor:
         """Single training step."""
