@@ -7,15 +7,15 @@
   flex-direction:column;
   align-self:stretch;
   flex:none;
-  width:340px;
+  width:100%;
   min-height:0;
   overflow:hidden;
   background:var(--panel);
   border:1px solid var(--line);
   border-radius:var(--radius);
-  transition:width 160ms ease-out;
+  transition:height 160ms ease-out;
 }
-.dock.is-collapsed{ width:44px; }
+.dock.is-collapsed{ height:44px; }
 
 /* ---------- tab strip ---------- */
 .dock-strip{
@@ -108,46 +108,20 @@
   padding:14px 16px;
 }
 
-/* ---------- collapsed: 44px vertical strip ---------- */
+/* ---------- collapsed: 44px bottom strip ----------
+   The dock now lives under the map, not beside it, so collapsing it shrinks
+   height rather than width -- the tab strip stays horizontal and legible
+   instead of rotating into vertical text. */
 .dock.is-collapsed .dock-strip{
-  flex-direction:column;
   flex:1 1 auto;
   min-height:0;
-  padding:8px 0;
   border-bottom:0;
 }
 .dock.is-collapsed .dock-tabs{
-  flex-direction:column;
-  align-items:stretch;
-  gap:4px;
-  min-height:0;
-  overflow-x:hidden;
-  overflow-y:auto;
-}
-.dock.is-collapsed .dock-tab{
-  flex-direction:column;
-  justify-content:flex-start;
-  gap:6px;
-  width:100%;
-  margin-bottom:0;
-  padding:10px 0;
-  border-bottom:0;
-  border-left:2px solid transparent;
-  border-radius:0 2px 2px 0;
+  align-items:center;
 }
 .dock.is-collapsed .dock-tab[aria-selected="true"]{
-  border-left-color:var(--accent);
-}
-.dock.is-collapsed .dock-tab-label{
-  writing-mode:vertical-rl;
-  max-height:112px;
-  overflow:hidden;
-}
-.dock.is-collapsed .dock-collapse{
-  width:auto;
-  height:28px;
-  margin-left:0;
-  margin-top:auto;
+  border-bottom-color:var(--accent);
 }
 
 /* ---------- focus ---------- */

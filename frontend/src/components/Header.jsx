@@ -50,21 +50,27 @@ export default function Header({ region, onRegionChange }) {
   return (
     <header className="console-header">
       <div className="brand">
-        <h1>Hyperlocal Nowcast Console</h1>
-        <p>Precursor detection for severe thunderstorms, cloudbursts and flash floods, 2&ndash;6 hours ahead of onset.</p>
+        <span className="brand-mark" aria-hidden="true"><i className="fa-solid fa-cloud-bolt"></i></span>
+        <div className="brand-text">
+          <h1>AERO<strong>CAST</strong> <span className="brand-sub">Hyperlocal Nowcast Console</span></h1>
+          <p>Precursor detection for severe thunderstorms, cloudbursts and flash floods, 2&ndash;6 hours ahead of onset.</p>
+        </div>
       </div>
       <div className="header-controls">
-        <div className="segmented" role="group" aria-label="Region">
-          {REGION_META.map((meta) => (
-            <button
-              key={meta.id}
-              type="button"
-              aria-pressed={region === meta.id}
-              onClick={() => onRegionChange(meta.id)}
-            >
-              {meta.label}
-            </button>
-          ))}
+        <div className="area-selector" role="group" aria-label="Region">
+          <span className="area-label"><i className="fa-solid fa-crosshairs" aria-hidden="true"></i> Region</span>
+          <div className="segmented">
+            {REGION_META.map((meta) => (
+              <button
+                key={meta.id}
+                type="button"
+                aria-pressed={region === meta.id}
+                onClick={() => onRegionChange(meta.id)}
+              >
+                {meta.label}
+              </button>
+            ))}
+          </div>
         </div>
         <button
           type="button"
@@ -73,13 +79,18 @@ export default function Header({ region, onRegionChange }) {
           title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
           onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
         >
-          <span className="theme-glyph" aria-hidden="true">{theme === 'dark' ? '☾' : '☀'}</span>
-          {theme === 'dark' ? 'Dark' : 'Light'}
+          <span className="theme-glyph" aria-hidden="true">
+            <i className={theme === 'dark' ? 'fa-solid fa-moon' : 'fa-solid fa-sun'}></i>
+          </span>
+          {theme === 'dark' ? 'Dark Obsidian' : 'Alabaster Gold'}
         </button>
         <div className="status-block">
           <span className="live-pill"><span className="live-dot"></span>Live &mdash; refreshed every 10 min</span>
           <span className="clock mono">{formatClock(clockSeconds)}</span>
         </div>
+        <button type="button" className="login-btn" title="Operator sign-in is not wired up in this console yet">
+          <i className="fa-solid fa-right-to-bracket" aria-hidden="true"></i> Log In
+        </button>
       </div>
     </header>
   )

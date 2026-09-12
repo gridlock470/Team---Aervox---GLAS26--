@@ -108,6 +108,10 @@ export default function MapPanel({ region, hazard, step }) {
       </div>
 
       <div className="map-wrap">
+        <div className="map-overlay-title">
+          <span className="pulse-dot"></span>
+          <span>LIVE RADAR &amp; HAZARD ZONE MATRIX</span>
+        </div>
         <div className="map-canvas" ref={containerRef} role="img" aria-label={`${hazardName} probability map — ${regionData.title}`} />
         {hoverInfo && hoverInfo.object && (
           <div

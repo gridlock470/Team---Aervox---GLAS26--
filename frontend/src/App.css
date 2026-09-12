@@ -9,11 +9,12 @@
 .shell{
   height:100vh;
   display:grid;
-  grid-template-columns:224px minmax(0,1fr) auto;
-  grid-template-rows:auto minmax(0,1fr);
+  grid-template-columns:296px minmax(0,1fr);
+  grid-template-rows:auto minmax(0,1.5fr) minmax(200px,1fr);
   grid-template-areas:
-    "header header header"
-    "navrail stage dock";
+    "header header"
+    "navrail stage"
+    "navrail dock";
   gap:12px;
   padding:12px;
   background:var(--bg);
@@ -111,6 +112,17 @@
   }
   .shell > .nav-rail{ display:none; }
 }
+
+/* ---------- dock, as a bottom panel ----------
+   The pasted mock stacks the detail grid under the map rather than beside
+   it; Dock.css still ships side-rail defaults (fixed width, width-based
+   collapse), so those are overridden here at the layout seam instead of
+   rewriting the component for a bottom-only home. */
+.shell > .dock{
+  width:100%;
+  align-self:stretch;
+}
+.shell > .dock.is-collapsed{ width:100%; height:44px; }
 
 /* ---------- panels (shared) ---------- */
 .panel{

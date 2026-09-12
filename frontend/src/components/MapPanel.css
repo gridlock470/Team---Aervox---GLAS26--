@@ -6,6 +6,45 @@
 
 .map-wrap{ position:relative; }
 
+/* Corner badge over the live map, matching the pasted mock's radar banner.
+   It sits above MapLibre's own canvas/controls (z-index), so it never fights
+   the navigation control in the opposite corner. */
+.map-overlay-title{
+  position:absolute;
+  top:12px;
+  left:12px;
+  z-index:5;
+  display:flex;
+  align-items:center;
+  gap:9px;
+  background:var(--overlay-bg);
+  backdrop-filter:blur(8px);
+  border:1px solid var(--accent-bright);
+  padding:7px 13px;
+  border-radius:var(--radius-sm);
+  font-size:11px;
+  font-weight:800;
+  letter-spacing:0.05em;
+  color:var(--ink);
+  box-shadow:0 4px 16px rgba(0,0,0,0.4);
+}
+.pulse-dot{
+  width:8px;
+  height:8px;
+  flex:none;
+  border-radius:50%;
+  background:var(--sev-red);
+  box-shadow:0 0 10px var(--sev-red);
+  animation:pulse-glow 1.5s infinite alternate;
+}
+@keyframes pulse-glow{
+  0%{ transform:scale(0.85); opacity:0.75; }
+  100%{ transform:scale(1.2); opacity:1; }
+}
+@media (prefers-reduced-motion: reduce){
+  .pulse-dot{ animation:none; }
+}
+
 .map-canvas{
   width:100%;
   height:480px;

@@ -19,14 +19,34 @@
 /* The single gold hairline in the console's furniture: it marks the title as
    the anchor without spending colour on it. */
 .console-header .brand{
+  display:flex;
+  align-items:flex-start;
+  gap:10px;
   border-left:2px solid var(--accent);
   padding-left:12px;
 }
+.brand-mark{
+  font-size:19px;
+  line-height:1.25;
+  color:var(--accent-bright);
+  filter:drop-shadow(0 0 6px var(--accent-bright));
+}
 .console-header .brand h1{
   font-size:17px;
-  font-weight:700;
+  font-weight:800;
   letter-spacing:-0.015em;
   line-height:1.2;
+}
+.console-header .brand h1 strong{
+  color:var(--accent-bright);
+  text-shadow:0 0 10px rgba(234,179,8,0.35);
+}
+.brand-sub{
+  margin-left:8px;
+  font-size:11px;
+  font-weight:500;
+  color:var(--ink-faint);
+  letter-spacing:0.02em;
 }
 .console-header .brand p{
   margin-top:3px;
@@ -41,6 +61,53 @@
   gap:16px;
   flex-wrap:wrap;
 }
+
+/* Area selector: label + the existing segmented control, boxed like the
+   pasted mock's "Region:" chip rather than left loose in the header row. */
+.area-selector{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  background:var(--panel-raised);
+  border:1px solid var(--line);
+  border-radius:var(--radius-sm);
+  padding:4px 8px 4px 10px;
+}
+.area-selector:hover{ border-color:var(--line-strong); }
+.area-label{
+  display:flex;
+  align-items:center;
+  gap:5px;
+  font-size:10.5px;
+  font-weight:800;
+  text-transform:uppercase;
+  letter-spacing:0.06em;
+  color:var(--ink-dim);
+}
+.area-label i{ color:var(--accent-bright); }
+.area-selector .segmented{ border:0; padding:0; background:transparent; }
+
+/* Decorative sign-in affordance: no auth backend exists, so this never fires
+   a request -- it exists to complete the console chrome the mock shows. */
+.login-btn{
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  background:linear-gradient(135deg, var(--accent-bright), var(--accent));
+  color:#0b0b0d;
+  border:0;
+  border-radius:var(--radius-sm);
+  padding:7px 14px;
+  font-size:12.5px;
+  font-weight:800;
+  cursor:pointer;
+  box-shadow:0 0 14px rgba(234,179,8,0.28);
+}
+.login-btn:hover{
+  transform:translateY(-1px);
+  box-shadow:0 0 20px rgba(234,179,8,0.42);
+}
+:root[data-theme="light"] .login-btn{ color:#FFFFFF; }
 
 /* Theme toggle. Neutral chrome only -- colour on this console means severity,
    and a display preference is not a hazard. */

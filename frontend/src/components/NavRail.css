@@ -1,80 +1,155 @@
 /* ---------- nav rail ----------
-   The hazard switch. Two colour systems meet on one row and must not be
-   confused, so they are given different jobs:
-     * the 3px LEFT RULE and the dot are severity (set inline from JS),
-     * the gold ring is selection.
-   An operator can therefore see "flash flood is the one I am looking at"
-   and "cloudburst is the one that is red" at the same time. */
+   Hazard switch, styled after the pasted AEROCAST mock's hazard cards: a
+   solid severity-colour badge does the "how bad" job, the gold ring/wash
+   does the "which one is selected" job. Two colour systems, kept apart so
+   an operator can see "flash flood is the one I am looking at" and
+   "cloudburst is the one that is red" at the same time. */
 .nav-rail{
   grid-area:navrail;
   display:flex;
   flex-direction:column;
-  gap:14px;
-  padding:14px 13px;
+  gap:0;
+  padding:0;
   background:var(--panel);
   border:1px solid var(--line);
   border-radius:var(--radius);
+  overflow:hidden;
 }
+
+.nav-heading{
+  padding:13px 14px;
+  background:rgba(255,255,255,0.02);
+  border-bottom:1px solid var(--line);
+  font-size:11px;
+  font-weight:800;
+  text-transform:uppercase;
+  letter-spacing:0.07em;
+  color:var(--ink-dim);
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+.nav-heading i{ color:var(--accent-bright); filter:drop-shadow(0 0 5px var(--accent-bright)); }
+
+.nav-section{ padding:13px 14px 0; }
 .nav-section h3{
   font-size:10.5px;
-  font-weight:700;
+  font-weight:800;
   letter-spacing:0.08em;
   text-transform:uppercase;
-  color:var(--ink-dim);
-  padding:0 2px 9px;
+  color:var(--ink-faint);
+  padding:0 0 9px;
 }
-.hazard-list{ display:flex; flex-direction:column; gap:7px; }
-.hazard-btn{
+
+.hazard-card-list{ display:flex; flex-direction:column; gap:8px; }
+.hazard-card{
   display:flex;
   align-items:center;
   justify-content:space-between;
-  gap:8px;
+  gap:10px;
+  width:100%;
   background:var(--panel-raised);
   border:1px solid var(--line);
-  border-left:3px solid var(--line);
   border-radius:var(--radius-sm);
   padding:10px 11px;
   cursor:pointer;
   text-align:left;
-  transition:background 140ms ease-out;
+  transition:background 140ms ease-out, border-color 140ms ease-out, transform 140ms ease-out;
 }
-.hazard-btn:hover{ background:var(--panel-hover); }
-.hazard-btn[aria-pressed="true"]{
-  background:var(--accent-wash);
-  box-shadow:inset 0 0 0 1px var(--line-strong);
+.hazard-card:hover{ background:var(--panel-hover); border-color:var(--line-strong); transform:translateY(-1px); }
+.hazard-card.active{
+  border-color:var(--accent-bright);
+  background:linear-gradient(135deg, var(--accent-wash) 0%, rgba(212,175,55,0.05) 100%);
+  box-shadow:0 0 18px rgba(234,179,8,0.22), inset 0 0 10px rgba(234,179,8,0.12);
 }
-.hazard-btn .name{ font-size:12.5px; font-weight:500; color:var(--ink-dim); }
-.hazard-btn[aria-pressed="true"] .name{ font-weight:600; color:var(--ink); }
-.hazard-btn .reading{
-  display:flex; align-items:center; gap:7px;
-}
-.sev-dot{
-  width:9px; height:9px; border-radius:50%; flex:none;
-}
-.hazard-btn .pct{ font-size:12.5px; color:var(--ink-dim); }
-.hazard-btn[aria-pressed="true"] .pct{ color:var(--ink); }
 
-/* Which area these numbers are for. It had no rule before and inherited body
-   ink at full strength, competing with the readings above it. */
+.hazard-info{ display:flex; align-items:center; gap:10px; min-width:0; }
+.hazard-icon-wrapper{
+  flex:none;
+  width:32px;
+  height:32px;
+  border-radius:var(--radius-sm);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:rgba(0,0,0,0.28);
+  border:1px solid var(--line);
+  font-size:14px;
+}
+.hazard-card.active .hazard-icon-wrapper{
+  border-color:var(--accent-bright);
+  background:var(--accent-wash);
+}
+.hazard-name{ font-size:13px; font-weight:600; color:var(--ink-dim); }
+.hazard-card.active .hazard-name{ color:var(--ink); font-weight:700; }
+
+.hazard-badge{
+  flex:none;
+  font-size:10px;
+  font-weight:800;
+  padding:4px 8px;
+  border-radius:4px;
+  letter-spacing:0.03em;
+  color:#fff;
+  white-space:nowrap;
+}
+
+/* Atmospheric parameters: the pasted mock's fixed metric rows, now driven by
+   the strongest-weighted real drivers for the selected hazard and step. */
+.hazard-detail-box{
+  background:var(--panel-raised);
+  border:1px solid var(--line);
+  border-radius:var(--radius-sm);
+  padding:9px;
+  display:flex;
+  flex-direction:column;
+  gap:7px;
+}
+.metric-row{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:8px;
+  font-size:11.5px;
+  padding:6px 8px;
+  border-radius:4px;
+  background:rgba(255,255,255,0.02);
+  border-left:2px solid var(--accent-bright);
+}
+.metric-row span{
+  color:var(--ink-dim);
+  display:flex;
+  align-items:center;
+  gap:6px;
+  min-width:0;
+}
+.metric-row span i{ color:var(--accent-bright); flex:none; }
+.metric-row strong{
+  color:var(--accent-bright);
+  font-weight:800;
+  font-size:12px;
+  white-space:nowrap;
+}
+
+/* Which area these numbers are for, plus a pointer to the alert log below. */
 .nav-note{
   margin-top:auto;
-  padding-top:12px;
+  padding:12px 14px 14px;
   border-top:1px solid var(--line-soft);
   font-size:11.5px;
   line-height:1.45;
   color:var(--ink-dim);
 }
-
-.station-list{ display:flex; flex-direction:column; gap:2px; }
-.station-row{
-  display:flex; align-items:center; justify-content:space-between;
-  padding:7px 8px;
-  border-radius:var(--radius-sm);
-  font-size:12.5px;
+.nav-alert-count{
+  display:flex;
+  align-items:center;
+  gap:6px;
+  margin-top:8px;
+  font-size:11px;
+  font-weight:700;
+  color:var(--accent-bright);
 }
-.station-row .name{ display:flex; align-items:center; gap:8px; color:var(--ink); }
-.station-row .pct{ color:var(--ink-dim); }
 
 @media (prefers-reduced-motion: reduce){
-  .hazard-btn{ transition:none; }
+  .hazard-card{ transition:none; }
 }
