@@ -18,6 +18,14 @@ data:
   norm_stats_path: DataSet/processed/norm_stats.json
   batch_size: 4
 
+  # Measured, not guessed. Data-only cost per batch on this machine:
+  #   0 workers 466 ms | 2 -> 324 ms | 4 -> 170 ms | 6 -> 113 ms
+  # Compute is ~330 ms/batch, so at 0 workers the loader was the bottleneck and
+  # an epoch cost roughly data+compute. At 4 workers loading drops below
+  # compute and hides behind it entirely; 6 buys nothing further and only
+  # contends with torch's 8 compute threads for 12 cores.
+  num_workers: 4
+
 model:
   backbone:
     in_channels: 20

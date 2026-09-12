@@ -398,12 +398,20 @@ class NowcastDataModule(L.LightningDataModule):
     ) -> DataLoader:
         if dataset is None:
             raise RuntimeError("call setup() before requesting a dataloader")
+        extra: dict = {}
+        if self.num_workers > 0:
+            # Windows spawns workers rather than forking, so each one re-imports
+            # this process and re-opens the Zarr store. Without persistent
+            # workers that cost is paid again every epoch and can outweigh the
+            # parallel read it buys.
+            extra = {"persistent_workers": True, "prefetch_factor": 2}
         return DataLoader(
             dataset,
             batch_size=self.batch_size,
             shuffle=shuffle and sampler is None,
             sampler=sampler,
             num_workers=self.num_workers,
+            **extra,
         )
 
     def train_dataloader(self) -> DataLoader:

@@ -51,6 +51,7 @@ def build(cfg: dict) -> tuple[NowcastDataModule, LitNowcast]:
             labels=data_cfg["labels"],
             terrain=data_cfg.get("terrain", str(nc_config.DEM_ROUTING_PATH)),
             batch_size=int(data_cfg.get("batch_size", 4)),
+            num_workers=int(data_cfg.get("num_workers", 0)),
             norm_stats_path=data_cfg.get(
                 "norm_stats_path", str(nc_config.NORM_STATS_PATH)
             ),
