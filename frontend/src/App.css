@@ -41,11 +41,10 @@
   height:100vh;
   display:grid;
   grid-template-columns:300px minmax(0,1fr);
-  grid-template-rows:auto minmax(0,1.15fr) auto minmax(170px,0.85fr);
+  grid-template-rows:auto minmax(0,1fr) minmax(220px,300px);
   grid-template-areas:
     "header header"
     "navrail stage"
-    "navrail telemetry"
     "navrail dock";
   gap:16px;
   padding:16px;
@@ -56,16 +55,8 @@
 .shell > header{ grid-area:header; }
 .shell > .nav-rail{ grid-area:navrail; overflow-y:auto; }
 .shell > .stage{ grid-area:stage; }
-.shell > .telemetry-section{ grid-area:telemetry; overflow:hidden; display:flex; flex-direction:column; }
 .shell > .dock{ grid-area:dock; }
 
-/* Telemetry's own section, not a dock tab -- it earns more room than a
-   panel-body scaled to fit whatever the dock has left over, so its table
-   scrolls internally rather than the section being squeezed to card-height. */
-.telemetry-section .panel-body{
-  overflow-y:auto;
-  max-height:280px;
-}
 .panel-head h2{ display:flex; align-items:center; gap:9px; }
 .panel-head h2 i{ color:var(--accent-bright); }
 
@@ -160,16 +151,14 @@
 @media (max-width: 1100px){
   .shell{
     grid-template-columns:1fr;
-    grid-template-rows:auto 44vh auto minmax(0,1fr);
+    grid-template-rows:auto 1fr minmax(0,340px);
     grid-template-areas:
       "header"
       "stage"
-      "telemetry"
       "dock";
     overflow-y:auto;
   }
   .shell > .nav-rail{ display:none; }
-  .telemetry-section .panel-body{ max-height:none; }
 }
 
 /* ---------- dock, as a bottom panel ----------
