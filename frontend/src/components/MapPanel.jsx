@@ -2,10 +2,11 @@ import { useEffect, useRef, useState } from 'react'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import maplibregl from 'maplibre-gl'
 import { MapboxOverlay } from '@deck.gl/mapbox'
-import { ScatterplotLayer } from '@deck.gl/layers'
+import { ScatterplotLayer, BitmapLayer } from '@deck.gl/layers'
 import './MapPanel.css'
 import { DATA, HAZARDS, timeAt } from '../data/nowcastData.js'
 import { SEV, sevFor, sevRgba, radiusMeters } from '../lib/severity.js'
+import dgmrNowcast from '../data/dgmrNowcast.json'
 
 // Matches the transform duration driven on .stage in App.jsx -- kept in one
 // place so the post-transition map.resize() timeout cannot drift out of sync
@@ -19,6 +20,12 @@ export default function MapPanel({ region, hazard, step, fullscreen, onToggleFul
   const prevRegionRef = useRef(null)
   const [hoverInfo, setHoverInfo] = useState(null)
   const [mapLoaded, setMapLoaded] = useState(false)
+  const [showAiForecast, setShowAiForecast] = useState(false)
+
+  // Only generated for one region so far (see scripts/make_dgmr_nowcast.py) --
+  // the toggle only appears where there is actually a frame to show.
+  const aiAvailable = dgmrNowcast?.region === region
+  const aiFrame = aiAvailable ? dgmrNowcast.frames[Math.min(step, dgmrNowcast.frames.length - 1)] : null
 
   // Mount the map once.
   useEffect(() => {
@@ -158,13 +165,26 @@ export default function MapPanel({ region, hazard, step, fullscreen, onToggleFul
       },
     })
 
-    overlayRef.current.setProps({ layers: [haloLayer, coreLayer] })
+    // Demo overlay from a real pretrained model (scripts/make_dgmr_nowcast.py),
+    // not a placeholder -- but drawn under the hazard dots and off by default,
+    // since it is an integration demo rather than a validated forecast (see
+    // dgmrNowcast.json's own disclaimer, surfaced in the caption below).
+    const aiLayer = showAiForecast && aiFrame
+      ? new BitmapLayer({
+          id: 'ai-forecast-bitmap',
+          image: aiFrame.file,
+          bounds: dgmrNowcast.bbox,
+          opacity: 0.55,
+        })
+      : null
+
+    overlayRef.current.setProps({ layers: [aiLayer, haloLayer, coreLayer].filter(Boolean) })
 
     if (prevRegionRef.current !== region) {
       prevRegionRef.current = region
       recenterToRegion()
     }
-  }, [mapLoaded, region, hazard, step])
+  }, [mapLoaded, region, hazard, step, showAiForecast])
 
   const regionData = DATA[region]
   const hazardName = HAZARDS.find((h) => h.id === hazard)?.name ?? hazard
@@ -202,6 +222,16 @@ export default function MapPanel({ region, hazard, step, fullscreen, onToggleFul
         >
           <i className="fa-solid fa-location-crosshairs" aria-hidden="true"></i>
         </button>
+        {aiAvailable && (
+          <button
+            type="button"
+            className={showAiForecast ? 'map-ai-toggle active' : 'map-ai-toggle'}
+            onClick={(e) => { e.stopPropagation(); setShowAiForecast((v) => !v) }}
+            title="Toggle AI-generated forecast overlay (demo, experimental)"
+          >
+            <i className="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> AI Forecast (beta)
+          </button>
+        )}
         <div
           className="map-canvas"
           ref={containerRef}
@@ -217,6 +247,11 @@ export default function MapPanel({ region, hazard, step, fullscreen, onToggleFul
             <div className="map-tooltip-pct mono">
               {hoverInfo.object.pct}% &middot; {SEV[sevFor(hoverInfo.object.pct)].label}
             </div>
+          </div>
+        )}
+        {showAiForecast && aiFrame && (
+          <div className="map-ai-caption">
+            <strong>{aiFrame.label}</strong> &mdash; {dgmrNowcast.model.name}. {dgmrNowcast.disclaimer}
           </div>
         )}
       </div>

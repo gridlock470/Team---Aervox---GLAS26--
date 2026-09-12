@@ -116,6 +116,55 @@
 }
 .map-recenter:hover{ background:var(--panel-hover); color:var(--accent-bright); }
 
+/* AI forecast toggle: off by default (this is a demo overlay, not the
+   console's primary data), so it reads as a secondary, opt-in affordance
+   rather than sitting gold/active like a real selection. */
+.map-ai-toggle{
+  position:absolute;
+  top:122px;
+  right:12px;
+  z-index:6;
+  display:flex;
+  align-items:center;
+  gap:7px;
+  background:var(--overlay-bg);
+  backdrop-filter:blur(8px);
+  border:1px solid var(--line-strong);
+  color:var(--ink);
+  padding:7px 13px;
+  border-radius:var(--radius-sm);
+  font-size:11px;
+  font-weight:700;
+  letter-spacing:0.03em;
+  cursor:pointer;
+  box-shadow:0 4px 16px rgba(0,0,0,0.4);
+}
+.map-ai-toggle:hover{ background:var(--panel-hover); }
+.map-ai-toggle.active{
+  border-color:var(--accent-bright);
+  background:var(--accent-wash);
+}
+.map-ai-toggle i{ color:var(--accent-bright); }
+
+/* Sits low, out of the way of the legend/tooltip -- present at all times
+   the overlay is on since the disclaimer is load-bearing, not optional. */
+.map-ai-caption{
+  position:absolute;
+  left:14px;
+  right:14px;
+  bottom:64px;
+  z-index:5;
+  background:var(--overlay-bg);
+  backdrop-filter:blur(8px);
+  border:1px solid var(--line);
+  border-radius:var(--radius-sm);
+  padding:8px 11px;
+  font-size:10.5px;
+  line-height:1.4;
+  color:var(--ink-faint);
+}
+.map-ai-caption strong{ color:var(--ink-dim); }
+
 .map-tooltip{
   position:absolute;
   z-index:2;

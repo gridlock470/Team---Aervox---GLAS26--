@@ -1,0 +1,42 @@
+{
+  "region": "uk",
+  "bbox": [
+    76.3,
+    27.8,
+    81.1,
+    31.5
+  ],
+  "generated_from": "Real IMERG precipitation, 2018-09-08, Uttarakhand",
+  "model": {
+    "name": "DGMR (Deep Generative Model of Radar)",
+    "source": "openclimatefix/dgmr (Hugging Face)",
+    "paper": "Ravuri et al. 2021, https://arxiv.org/abs/2104.00954"
+  },
+  "disclaimer": "Demo of a real pretrained model producing real output, not a validated India forecast: DGMR is trained on UK weather radar (different sensor and spatial scale than IMERG), and the public checkpoint is documented as trained on a sample dataset only, not the full paper training run.",
+  "frames": [
+    {
+      "step": 0,
+      "label": "AI nowcast, step 1 (experimental)",
+      "file": "/dgmr_frames/uk/frame_0.png",
+      "model_output_index": 0
+    },
+    {
+      "step": 1,
+      "label": "AI nowcast, step 2 (experimental)",
+      "file": "/dgmr_frames/uk/frame_1.png",
+      "model_output_index": 6
+    },
+    {
+      "step": 2,
+      "label": "AI nowcast, step 3 (experimental)",
+      "file": "/dgmr_frames/uk/frame_2.png",
+      "model_output_index": 12
+    },
+    {
+      "step": 3,
+      "label": "AI nowcast, step 4 (experimental)",
+      "file": "/dgmr_frames/uk/frame_3.png",
+      "model_output_index": 17
+    }
+  ]
+}
