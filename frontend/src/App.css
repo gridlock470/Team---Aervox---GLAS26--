@@ -1,15 +1,21 @@
 /* ---------- shell ----------
    Full-bleed operational console: the map is the hero and owns the screen.
    Everything that is not the map is either a slim selector or lives in the
-   dock, behind a tab. Nothing here scrolls the page. */
+   dock, behind a tab. Nothing here scrolls the page.
+
+   The shell now carries an 12px gutter. Previously the header title and the
+   hazard list sat hard against the bezel, which reads as an unfinished crop
+   on a wall display and gives the eye no edge to rest on. */
 .shell{
   height:100vh;
   display:grid;
-  grid-template-columns:208px minmax(0,1fr) auto;
+  grid-template-columns:224px minmax(0,1fr) auto;
   grid-template-rows:auto minmax(0,1fr);
   grid-template-areas:
     "header header header"
     "navrail stage dock";
+  gap:12px;
+  padding:12px;
   background:var(--bg);
   overflow:hidden;
 }
@@ -26,8 +32,10 @@
   display:flex;
   min-width:0;
   min-height:0;
-  border-left:1px solid var(--line);
-  border-right:1px solid var(--line);
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  overflow:hidden;
+  background:var(--panel);
 }
 
 /* Let the map fill the stage instead of its authored fixed height, and drop
@@ -45,8 +53,8 @@
 .stage .map-wrap{ flex:1; min-height:0; }
 .stage .map-canvas{ height:100%; }
 
-/* The basemap is a light cartographic style; the console is dark. Tone the
-   raster down so the severity overlay is the brightest thing on screen --
+/* The basemap is a light cartographic style; the console is near-black. Tone
+   the raster down so the severity overlay is the brightest thing on screen --
    the map is context, the hazard is the message. Applied to MapLibre's own
    canvas only, so the deck.gl overlay keeps its true colours. */
 .stage .maplibregl-canvas{
@@ -65,7 +73,7 @@
   padding:10px 12px;
   border-top:0;
   border:1px solid var(--line);
-  border-radius:8px;
+  border-radius:var(--radius-sm);
   background:var(--overlay-bg);
   backdrop-filter:blur(8px);
 }
@@ -82,8 +90,8 @@
   max-width:calc(100% - 32px);
   background:var(--overlay-bg);
   border:1px solid var(--line);
-  border-radius:8px;
-  padding:10px 14px;
+  border-radius:var(--radius-sm);
+  padding:9px 12px;
   backdrop-filter:blur(8px);
 }
 /* The strip was authored as a page-width footer; inside the overlay it is a
@@ -102,14 +110,13 @@
     overflow-y:auto;
   }
   .shell > .nav-rail{ display:none; }
-  .stage{ border-left:0; border-right:0; border-bottom:1px solid var(--line); }
 }
 
 /* ---------- panels (shared) ---------- */
 .panel{
   background:var(--panel);
   border:1px solid var(--line);
-  border-radius:8px;
+  border-radius:var(--radius);
 }
 .panel-head{
   padding:13px 16px;
@@ -120,8 +127,11 @@
   gap:10px;
 }
 .panel-head h2{
-  font-size:13px;
-  font-weight:600;
+  font-size:12px;
+  font-weight:700;
+  letter-spacing:0.06em;
+  text-transform:uppercase;
+  color:var(--ink);
 }
 .panel-body{ padding:14px 16px; }
 
@@ -147,8 +157,9 @@
    first and last labels. Tighten the tabs rather than widen the dock -- the
    map is the thing that deserves the pixels. */
 .dock:not(.is-collapsed) .dock-tab{
-  padding-left:9px;
-  padding-right:9px;
-  font-size:12px;
+  padding-left:7px;
+  padding-right:7px;
+  font-size:11.5px;
+  letter-spacing:-0.005em;
   white-space:nowrap;
 }

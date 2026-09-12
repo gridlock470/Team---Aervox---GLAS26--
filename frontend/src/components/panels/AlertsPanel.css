@@ -3,7 +3,7 @@
 .alerts-panel{
   background:var(--panel);
   border:1px solid var(--line);
-  border-radius:8px;
+  border-radius:var(--radius);
   overflow:hidden;
 }
 
@@ -59,7 +59,7 @@
   cursor:pointer;
   transition:background-color 140ms ease;
 }
-.ap-row:hover{ background:var(--panel-raised); }
+.ap-row:hover{ background:var(--panel-hover); }
 .ap-row:focus-visible{ outline:2px solid var(--focus); outline-offset:-2px; }
 
 .ap-line-top{
@@ -69,7 +69,15 @@
   align-items:baseline;
   gap:8px;
 }
-.ap-sev{ font-size:11.5px; font-weight:600; color:var(--ink); }
+/* The severity word repeats the left rule in language, for anyone who cannot
+   separate the hues. Ink, not chroma: the rule already carries the colour. */
+.ap-sev{
+  font-size:10.5px;
+  font-weight:700;
+  letter-spacing:0.07em;
+  text-transform:uppercase;
+  color:var(--ink);
+}
 .ap-when{ font-size:11.5px; color:var(--ink-dim); flex:none; }
 
 .ap-headline{

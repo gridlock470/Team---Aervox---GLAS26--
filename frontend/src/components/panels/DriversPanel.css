@@ -41,8 +41,9 @@
 }
 .dp-legend-step[data-active="true"]{
   color:var(--ink);
-  background:var(--panel-raised);
-  border-color:var(--line);
+  font-weight:600;
+  background:var(--accent-wash);
+  border-color:var(--line-strong);
 }
 
 /* ranked list — hairlines, no cards */

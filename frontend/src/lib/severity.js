@@ -1,8 +1,14 @@
+/* One palette serves both themes: these hexes are handed straight to inline
+   styles and to deck.gl, which cannot see the CSS theme. They are therefore
+   mid-tone on purpose — each clears 3:1 as a graphic mark against #050507 and
+   against #FFFFFF. They also sit deeper than the interface gold (#D4AF37 /
+   #EAB308) so a "watch" never reads as chrome, and chrome never reads as a
+   warning. Keys, labels and thresholds are unchanged. */
 export const SEV = {
-  green:  { hex: '#3F8F63', rgb: [63, 143, 99],   label: 'Green' },
-  yellow: { hex: '#96982E', rgb: [150, 152, 46],  label: 'Yellow' },
-  orange: { hex: '#C6621F', rgb: [198, 98, 31],   label: 'Orange' },
-  red:    { hex: '#BC3B3E', rgb: [188, 59, 62],   label: 'Red' },
+  green:  { hex: '#0E9F6E', rgb: [14, 159, 110],  label: 'Green' },
+  yellow: { hex: '#C08A0E', rgb: [192, 138, 14],  label: 'Yellow' },
+  orange: { hex: '#E2650F', rgb: [226, 101, 15],  label: 'Orange' },
+  red:    { hex: '#E03150', rgb: [224, 49, 80],   label: 'Red' },
 };
 
 export const SEV_ORDER = ['green', 'yellow', 'orange', 'red'];

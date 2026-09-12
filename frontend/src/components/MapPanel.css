@@ -19,7 +19,7 @@
 /* Keep the OpenFreeMap attribution legible against the dark theme —
    required by the tile license, so we style it, never hide it. */
 .map-canvas .maplibregl-ctrl-attrib{
-  background:rgba(10,20,32,0.72);
+  background:var(--overlay-bg);
   color:var(--ink-dim);
 }
 .map-canvas .maplibregl-ctrl-attrib a{
@@ -34,12 +34,13 @@
   z-index:2;
   transform:translate(-50%, calc(-100% - 12px));
   pointer-events:none;
-  background:var(--panel-raised);
-  border:1px solid var(--line);
-  border-radius:6px;
+  background:var(--overlay-bg);
+  border:1px solid var(--line-strong);
+  border-radius:var(--radius-sm);
   padding:7px 10px;
   min-width:120px;
-  box-shadow:0 6px 18px rgba(0,0,0,0.35);
+  backdrop-filter:blur(8px);
+  box-shadow:0 8px 22px rgba(0,0,0,0.45);
 }
 .map-tooltip-name{
   font-size:12.5px;
@@ -61,3 +62,7 @@
 }
 .legend-item{ display:flex; align-items:center; gap:7px; font-size:12px; color:var(--ink-dim); }
 .legend-swatch{ width:11px; height:11px; border-radius:3px; flex:none; }
+
+/* Attribution button glyph is a dark sprite; it only needs inverting on the
+   dark theme, where the control sits on a near-black wash. */
+:root[data-theme="light"] .map-canvas .maplibregl-ctrl-attrib-button{ filter:none; }
