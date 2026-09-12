@@ -16,6 +16,8 @@ mlartifacts/
 lightning_logs/
 *.ckpt
 wandb/
+/runs/
+runs_train.log
 
 # Data (never commit raw or processed datasets) — repo-root only, not nowcast/data/
 /DataSet/

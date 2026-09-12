@@ -1,0 +1,48 @@
+# ConvLSTM run against the REAL 2018 datacube.
+#
+# Sibling convlstm_small.yaml stays as the synthetic CPU smoke config used by
+# the test suite; this file is the one that trains on data.
+#
+# Backbone size is measured, not guessed. On this CPU (8 threads, no CUDA):
+#   hidden=16 depth=2 ->  51k params, 1.6 min/epoch
+#   hidden=32 depth=2 -> 181k params, 4.2 min/epoch   <- chosen
+#   hidden=48 depth=3 -> 556k params,  13 min/epoch
+# 48/3 is rejected on both counts: 6.5 h for 30 epochs, and 556k parameters
+# against 3031 training windows would memorise rather than learn.
+
+data:
+  source: real
+  features: DataSet/processed/features.zarr
+  labels: DataSet/processed/labels.zarr
+  terrain: DataSet/processed/dem_routing.zarr
+  norm_stats_path: DataSet/processed/norm_stats.json
+  batch_size: 4
+
+model:
+  backbone:
+    in_channels: 20
+    hidden: 32
+    depth: 2
+  lr: 3.0e-4
+  weight_decay: 1.0e-4
+
+  # Rare-event settings. Positives run from about 1 in 45 (thunderstorm) to
+  # 1 in 35,000 (cloudburst), so an unweighted loss converges on the
+  # degenerate "predict nothing" solution.
+  bce_weight: 1.0
+  dice_weight: 0.5
+  focal_weight: 1.0
+  pos_weight: 20.0
+
+  # Left flat deliberately. Inverse-frequency hazard weights should come from
+  # losses.hazard_weights_from_base_rates over the train split, but stacking
+  # two untested rare-event levers in the first real run would make it
+  # impossible to attribute any change in the metrics.
+  hazard_weights:
+    thunderstorm: 1.0
+    cloudburst: 1.0
+    flash_flood: 1.0
+
+trainer:
+  max_epochs: 25
+  log_every_n_steps: 25

@@ -9,6 +9,7 @@ Example::
 from __future__ import annotations
 
 import argparse
+import logging
 import shutil
 from pathlib import Path
 
@@ -87,10 +88,20 @@ def resolve_logger(run_dir: Path):
     except ModuleNotFoundError:  # pragma: no cover - logger extras absent
         return None
     if has_mlflow:
-        return MLFlowLogger(
-            experiment_name="nowcast",
-            tracking_uri=f"file:{(run_dir / 'mlruns').as_posix()}",
-        )
+        try:
+            return MLFlowLogger(
+                experiment_name="nowcast",
+                tracking_uri=f"file:{(run_dir / 'mlruns').as_posix()}",
+            )
+        except Exception as exc:  # noqa: BLE001 - logging must never kill a run
+            # Constructing the logger can fail even when mlflow imports cleanly:
+            # recent versions refuse a filesystem tracking backend outright
+            # unless MLFLOW_ALLOW_FILE_STORE is set, and that exception was
+            # escaping and aborting training before the first epoch. Experiment
+            # tracking is observability; losing it must never cost a run.
+            logging.getLogger(__name__).warning(
+                "MLflow logger unavailable (%s); falling back to CSVLogger", exc
+            )
     return CSVLogger(save_dir=str(run_dir))
 
 
