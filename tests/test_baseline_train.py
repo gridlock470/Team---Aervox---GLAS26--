@@ -41,10 +41,17 @@ def _heavy_rain_cube(n_hours, start, rain_windows):
 
 @pytest.fixture(scope="module")
 def split_paths(tmp_path_factory):
-    """Cube straddling the train/val boundary: 2019-12-31 (train) + 2020-01 (val)."""
+    """Cube straddling the configured train/val boundary.
+
+    The start is derived from ``config.VAL_DATE_RANGE`` rather than hard-coded,
+    so the fixture keeps straddling the boundary wherever the splits are set.
+    """
     workdir = tmp_path_factory.mktemp("baseline_split")
+    boundary_start = (
+        pd.Timestamp(config.VAL_DATE_RANGE[0]) - pd.Timedelta(days=1)
+    ).strftime("%Y-%m-%dT%H:%M")
     cube = _heavy_rain_cube(
-        54, "2019-12-31T00:00", rain_windows=[(1, 6), (26, 32)]
+        54, boundary_start, rain_windows=[(1, 6), (26, 32)]
     )
     features = assemble_features(cube)
     labels = build_labels(cube)

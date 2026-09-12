@@ -146,10 +146,13 @@ def _multi_range_features(per_range: int = 24):
     n = per_range * 3
     features = synthetic.make_feature_datacube(n_hours=n, seed=0)
     labels = synthetic.make_targets(n_hours=n, seed=0)
+    # Anchored to the configured splits rather than hard-coded dates, so the
+    # fixture follows the contract instead of silently falling outside it when
+    # the ranges move. Assertions are unchanged.
     times = pd.to_datetime(
-        list(pd.date_range("2018-03-01", periods=per_range, freq="h"))
-        + list(pd.date_range("2020-02-01", periods=per_range, freq="h"))
-        + list(pd.date_range("2020-08-01", periods=per_range, freq="h"))
+        list(pd.date_range(config.TRAIN_DATE_RANGE[0], periods=per_range, freq="h"))
+        + list(pd.date_range(config.VAL_DATE_RANGE[0], periods=per_range, freq="h"))
+        + list(pd.date_range(config.TEST_DATE_RANGE[0], periods=per_range, freq="h"))
     )
     return (
         features.assign_coords(time=times),

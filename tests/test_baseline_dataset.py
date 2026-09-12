@@ -83,7 +83,10 @@ def test_split_by_date_range_partitions_rows_disjointly():
     cube = synthetic.make_datacube(n_hours=48, seed=5).isel(
         lat=slice(0, 6), lon=slice(0, 6)
     )
-    stamps = pd.date_range("2019-12-31T00:00", periods=48, freq="1h")
+    # Straddle the configured train/val boundary rather than a hard-coded date,
+    # so the fixture follows the contract when the split ranges move.
+    boundary = pd.Timestamp(config.VAL_DATE_RANGE[0]) - pd.Timedelta(days=1)
+    stamps = pd.date_range(boundary, periods=48, freq="1h")
     cube = cube.assign_coords(time=stamps)
     features = assemble_features(cube)
     labels = build_labels(cube)
@@ -96,8 +99,11 @@ def test_split_by_date_range_partitions_rows_disjointly():
 
     train_days = {pd.Timestamp(t).date().isoformat() for t in train.times}
     val_days = {pd.Timestamp(t).date().isoformat() for t in val.times}
-    assert train_days == {"2019-12-31"}
-    assert val_days == {"2020-01-01"}
+    # The claim is that rows partition across the configured boundary -- the
+    # day before it lands in train, the boundary day in val -- not that the
+    # boundary sits on any particular calendar date.
+    assert train_days == {boundary.date().isoformat()}
+    assert val_days == {config.VAL_DATE_RANGE[0]}
     assert train_days.isdisjoint(val_days)
 
 

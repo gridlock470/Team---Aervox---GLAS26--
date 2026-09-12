@@ -9,7 +9,7 @@ import lightning as L
 import numpy as np
 import torch
 import xarray as xr
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader, Dataset, Sampler, WeightedRandomSampler
 
 from nowcast import config, schema
 from nowcast.data.transforms import (
@@ -21,6 +21,11 @@ from nowcast.data.transforms import (
 from nowcast.features.labels import valid_label_times
 
 _TERRAIN_VARS: tuple[str, str] = ("flow_accumulation", "hand")
+
+# Analysis times scanned per pass when building the storm catalogue. A full
+# train split is ~17k hours and a label field is (hazard, lead, lat, lon), so
+# materialising every label at once would cost gigabytes for one boolean each.
+_CATALOGUE_CHUNK: int = 256
 
 
 def _as_dataset(obj: Any) -> xr.Dataset:
@@ -92,6 +97,10 @@ class NowcastDataset(Dataset):
     under-restrict the split's tail and either serve a fabricated zero-padded
     label or, worse, a real future occurrence that actually belongs to the next
     split -- leaking information across the chronological boundary (F19).
+
+    ``__init__`` also builds a per-window *storm catalogue*
+    (:attr:`event_flags`) once, which :meth:`sample_weights` turns into the
+    event-balanced train sampler; see :meth:`NowcastDataModule.train_sampler`.
     """
 
     def __init__(
@@ -116,10 +125,88 @@ class NowcastDataset(Dataset):
         )
         analysis_positions = np.arange(window_count) + self.seq_len - 1
         self._window_starts = np.flatnonzero(valid[analysis_positions])
+        self._analysis_times = self._window_starts + self.seq_len - 1
+        self.event_flags = self._build_event_flags()
         self.terrain = _resolve_terrain(terrain, self.features)
 
     def __len__(self) -> int:
         return int(self._window_starts.size)
+
+    def _build_event_flags(self) -> np.ndarray:
+        """Storm catalogue: ``(n_windows, n_hazards)`` bool, computed once.
+
+        Entry ``[i, h]`` is True when this window's label holds at least one
+        cell at or above :data:`nowcast.config.LABEL_OCCURRENCE_THRESHOLD` for
+        hazard ``h``, reduced over ``lead``/``lat``/``lon``.
+
+        Row ``i`` describes window ``i`` in ``_window_starts`` space -- the same
+        index :meth:`__getitem__` takes -- *not* a raw time index. Anything
+        built on this therefore inherits the F19 horizon filter instead of
+        silently re-admitting the windows that filter dropped.
+        """
+        reduce_dims = [d for d in self.labels.dims if d not in ("time", "hazard")]
+        n_hazards = int(self.labels.sizes["hazard"])
+        n_windows = int(self._analysis_times.size)
+        flags = np.zeros((n_windows, n_hazards), dtype=bool)
+        for lo in range(0, n_windows, _CATALOGUE_CHUNK):
+            times = self._analysis_times[lo : lo + _CATALOGUE_CHUNK]
+            block = self.labels.isel(time=times) >= config.LABEL_OCCURRENCE_THRESHOLD
+            hit = block.any(dim=reduce_dims).transpose("time", "hazard")
+            flags[lo : lo + _CATALOGUE_CHUNK] = np.asarray(hit.values, dtype=bool)
+        return flags
+
+    def has_event(self) -> np.ndarray:
+        """``(n_windows,)`` bool -- window holds an occurrence of *any* hazard."""
+        return self.event_flags.any(axis=1)
+
+    def sample_weights(
+        self,
+        *,
+        target_fraction: float = config.EVENT_SAMPLER_TARGET_FRACTION,
+        max_replication: float = config.EVENT_SAMPLER_MAX_REPLICATION,
+    ) -> np.ndarray:
+        """Per-window sampling weights, indexed in ``_window_starts`` space.
+
+        An event window is weighted by its *rarest* hazard rather than by a
+        plain "contains an event" flag: thunderstorms outnumber cloudbursts by
+        orders of magnitude, so an any-event catalogue is almost entirely
+        thunderstorm days and leaves cloudburst exactly as invisible as before.
+        Quiet windows keep a floor weight of ``1.0`` -- a model that never sees
+        calm air cries wolf.
+
+        Event weights are scaled so the sampler puts ``target_fraction`` of its
+        probability mass on event windows, then clipped to ``max_replication``
+        times the quiet floor so a handful of storms cannot be memorised.
+
+        Returns all-ones when the split holds no occurrence at all, or holds
+        nothing *but* occurrences: both are degenerate, and neither may divide
+        by zero or leave the sampler with an all-zero weight vector.
+        """
+        if not 0.0 < target_fraction < 1.0:
+            raise ValueError("target_fraction must lie strictly between 0 and 1")
+        n_windows = int(self.event_flags.shape[0])
+        weights = np.ones(n_windows, dtype="float64")
+        is_event = self.has_event()
+        n_events = int(is_event.sum())
+        n_quiet = n_windows - n_events
+        if n_events == 0 or n_quiet == 0:
+            return weights
+
+        # Rarity relative to the most common hazard actually present in this
+        # split: 1.0 for that hazard, > 1.0 for rarer ones. Hazards with zero
+        # prevalence score 0 so the per-window max ignores them.
+        prevalence = self.event_flags.mean(axis=0)
+        present = prevalence > 0.0
+        rarity = np.zeros(prevalence.shape, dtype="float64")
+        rarity[present] = prevalence[present].max() / prevalence[present]
+        per_window = (self.event_flags * rarity).max(axis=1)
+
+        # Solve  s * R / (s * R + n_quiet) == target_fraction  for the common
+        # scale s, where R is this split's total unscaled event rarity mass.
+        total_rarity = float(per_window[is_event].sum())
+        scale = target_fraction * n_quiet / ((1.0 - target_fraction) * total_rarity)
+        weights[is_event] = np.minimum(scale * per_window[is_event], max_replication)
+        return weights
 
     def time_values(self) -> np.ndarray:
         """The ``time`` coordinate of this split (used to assert split disjointness)."""
@@ -155,6 +242,11 @@ class NowcastDataModule(L.LightningDataModule):
     ready-made datasets (see :meth:`from_synthetic`) so tests need no Zarr.
     ``setup`` resolves train-range normalisation stats (compute-if-missing) into
     ``config.NORM_STATS_PATH`` unless a ``norm`` is supplied.
+
+    ``event_balanced_sampling`` (default ``True``) puts a
+    :class:`~torch.utils.data.WeightedRandomSampler` on the *train* loader only,
+    so rare-hazard windows actually appear in a batch; set it ``False`` for the
+    ablation. Val and test stay unweighted and unshuffled either way.
     """
 
     def __init__(
@@ -167,11 +259,13 @@ class NowcastDataModule(L.LightningDataModule):
         num_workers: int = 0,
         *,
         norm_stats_path: str | Path = config.NORM_STATS_PATH,
+        event_balanced_sampling: bool = True,
         train_dataset: Dataset | None = None,
         val_dataset: Dataset | None = None,
         test_dataset: Dataset | None = None,
     ) -> None:
         super().__init__()
+        self.event_balanced_sampling = event_balanced_sampling
         self._features = features
         self._labels = labels
         self.norm = norm
@@ -241,6 +335,7 @@ class NowcastDataModule(L.LightningDataModule):
         seed: int = 0,
         batch_size: int = 2,
         norm: Normalizer | None = None,
+        event_balanced_sampling: bool = True,
     ) -> NowcastDataModule:
         """Build a datamodule from synthetic xarray data using contiguous splits."""
         from nowcast.testing import synthetic
@@ -267,26 +362,69 @@ class NowcastDataModule(L.LightningDataModule):
         ]
         return cls(
             batch_size=batch_size,
+            event_balanced_sampling=event_balanced_sampling,
             train_dataset=datasets[0],
             val_dataset=datasets[1],
             test_dataset=datasets[2],
         )
 
-    def _loader(self, dataset: Dataset | None, *, shuffle: bool) -> DataLoader:
+    def train_sampler(self) -> WeightedRandomSampler | None:
+        """The train split's event-balanced sampler, or ``None`` when unusable.
+
+        ``None`` -- meaning "fall back to plain uniform shuffling" -- when the
+        ``event_balanced_sampling`` ablation flag is off, when the injected
+        train dataset publishes no storm catalogue, or when the split is empty.
+        """
+        if not self.event_balanced_sampling:
+            return None
+        weights_fn = getattr(self._train, "sample_weights", None)
+        if weights_fn is None:
+            return None
+        weights = np.asarray(weights_fn(), dtype="float64")
+        if weights.size == 0 or float(weights.sum()) <= 0.0:
+            return None
+        return WeightedRandomSampler(
+            weights=torch.as_tensor(weights, dtype=torch.double),
+            num_samples=int(weights.size),
+            replacement=True,
+        )
+
+    def _loader(
+        self,
+        dataset: Dataset | None,
+        *,
+        shuffle: bool,
+        sampler: Sampler | None = None,
+    ) -> DataLoader:
         if dataset is None:
             raise RuntimeError("call setup() before requesting a dataloader")
         return DataLoader(
             dataset,
             batch_size=self.batch_size,
-            shuffle=shuffle,
+            shuffle=shuffle and sampler is None,
+            sampler=sampler,
             num_workers=self.num_workers,
         )
 
     def train_dataloader(self) -> DataLoader:
-        return self._loader(self._train, shuffle=True)
+        """Train loader, event-balanced via :meth:`train_sampler` by default.
+
+        The sampler draws *with replacement*, so an epoch keeps its length but
+        re-visits rare-hazard windows. Raw probabilities therefore come out
+        biased high (the effective class prior is no longer climatology) --
+        that is the post-hoc calibration stage's job, not this one's.
+        """
+        sampler = self.train_sampler()
+        return self._loader(self._train, shuffle=sampler is None, sampler=sampler)
 
     def val_dataloader(self) -> DataLoader:
+        """Val loader -- deliberately unweighted and unshuffled.
+
+        Balancing this would make every reported CSI/POD/FAR describe a climate
+        that does not exist.
+        """
         return self._loader(self._val, shuffle=False)
 
     def test_dataloader(self) -> DataLoader:
+        """Test loader -- unweighted and unshuffled, for the same reason as val."""
         return self._loader(self._test, shuffle=False)

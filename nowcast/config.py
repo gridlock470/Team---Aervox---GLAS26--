@@ -139,6 +139,29 @@ FOCAL_GAMMA: float = 2.0
 BCE_POS_WEIGHT: float = 20.0
 
 # ---------------------------------------------------------------------------
+# Event-balanced window sampling (consumed by nowcast.data.datamodule)
+# ---------------------------------------------------------------------------
+# The focal/pos_weight constants above fix the imbalance *within* a window. The
+# two below fix the imbalance *between* windows: with events in ~1e-4 of all
+# cell-hours, a uniformly shuffled loader serves thousands of consecutive
+# all-negative windows and the model never receives a positive gradient at all.
+# They are complementary — do not trade one off against the other.
+
+# Target share of the TRAIN sampler's probability mass that lands on windows
+# containing at least one occurrence. 0.35 leaves ~2/3 of every batch genuinely
+# quiet, which the model needs in order to learn when *not* to fire; pushing
+# this to 0.5+ balances the batch but produces a model that cries wolf on calm
+# air, and no amount of post-hoc calibration recovers the lost specificity.
+EVENT_SAMPLER_TARGET_FRACTION: float = 0.35
+
+# Ceiling on how much more often a single event window may be drawn than a
+# quiet one. Without it, a split holding three cloudburst days would give each
+# of them a ~1e4 weight and the model would simply memorise those three fields.
+# 50 is roughly one appearance per batch-of-50 for the rarest window, which is
+# enough signal to learn from and too little to overfit to.
+EVENT_SAMPLER_MAX_REPLICATION: float = 50.0
+
+# ---------------------------------------------------------------------------
 # Reproducibility
 # ---------------------------------------------------------------------------
 RANDOM_SEED: int = 1234
@@ -147,6 +170,20 @@ RANDOM_SEED: int = 1234
 # inclusive. Model selection uses VAL, final held-out evaluation uses TEST.
 # Consumed by data.datamodule and baseline.dataset (filter on the ``time`` coord;
 # do NOT split by calendar year — val and test would overlap).
-TRAIN_DATE_RANGE: tuple[str, str] = ("2018-01-01", "2019-12-31")
-VAL_DATE_RANGE: tuple[str, str] = ("2020-01-01", "2020-06-30")
-TEST_DATE_RANGE: tuple[str, str] = ("2020-07-01", "2020-12-31")
+# Chronological, disjoint, and inside the data that actually exists. These
+# previously pointed at 2019-2020, which matched nothing on disk: every sample
+# fell into train while val and test were empty, so no metric had anything to
+# compute on and nothing would have complained.
+#
+# Available: IMERG 2018-04-01..2018-09-30 complete, verified by date coverage
+# rather than file count (2019 was never fetched).
+# Split chronologically so no future information reaches training. Train keeps
+# July, the most event-dense month; August is event-dense as well, so val and
+# test are not starved of positives -- which matters at a 1-in-200 base rate.
+#
+# Known tradeoff: the 2-3 May 2018 demo outbreak falls in TRAIN, so skill
+# quoted on it is in-sample. Move May into TEST if a held-out demo matters
+# more than training signal.
+TRAIN_DATE_RANGE: tuple[str, str] = ("2018-04-01", "2018-07-31")
+VAL_DATE_RANGE: tuple[str, str] = ("2018-08-01", "2018-08-25")
+TEST_DATE_RANGE: tuple[str, str] = ("2018-08-26", "2018-09-30")
