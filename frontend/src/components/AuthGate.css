@@ -1,24 +1,348 @@
-/* ---------- auth gate ----------
-   The console's front screen: full viewport, nothing else mounted behind
-   it. Centered card rather than a form pinned to an edge, since there is
-   no other chrome on this screen competing for attention. */
-.auth-gate{
-  height:100vh;
-  width:100%;
+/* ---------- landing shell ----------
+   The console's front door, extending the same Obsidian & Tactical Gold
+   system as the authenticated app (theme.css) rather than inventing a
+   separate marketing look -- this is one product, not a microsite bolted
+   onto it. Free scrolling, not full-viewport-locked like the dashboard
+   shell: a landing page is read top to bottom. */
+.landing{
+  min-height:100vh;
+  background:var(--bg);
+  color:var(--ink);
+}
+
+/* ---------- nav ---------- */
+.landing-nav{
+  position:sticky;
+  top:0;
+  z-index:20;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:20px;
+  padding:14px 28px;
+  background:var(--overlay-bg);
+  backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--line);
+}
+.landing-brand{
+  display:inline-flex;
+  align-items:center;
+  gap:9px;
+  background:none;
+  border:0;
+  color:var(--ink);
+  font-size:15px;
+  font-weight:800;
+  letter-spacing:-0.01em;
+  cursor:pointer;
+}
+.landing-brand i{ color:var(--accent-bright); filter:drop-shadow(0 0 6px var(--accent-bright)); }
+
+.landing-nav-links{
+  display:flex;
+  align-items:center;
+  gap:26px;
+}
+.landing-nav-links button{
+  background:none;
+  border:0;
+  padding:0;
+  color:var(--ink-dim);
+  font-size:13.5px;
+  cursor:pointer;
+  transition:color 140ms ease-out;
+}
+.landing-nav-links button:hover{ color:var(--ink); }
+
+.landing-nav-cta{
+  flex:none;
+  background:linear-gradient(135deg, var(--accent-bright), var(--accent));
+  color:#0b0b0d;
+  border:0;
+  border-radius:var(--radius-sm);
+  padding:9px 18px;
+  font-size:13px;
+  font-weight:800;
+  cursor:pointer;
+  box-shadow:0 0 14px rgba(234,179,8,0.24);
+}
+.landing-nav-cta:hover{ box-shadow:0 0 20px rgba(234,179,8,0.4); }
+:root[data-theme="light"] .landing-nav-cta{ color:#FFFFFF; }
+
+@media (max-width: 780px){
+  .landing-nav-links{ display:none; }
+}
+
+/* ---------- hero ----------
+   Left-aligned copy beside a live instrument, not a centered headline over
+   a gradient wash -- the console reads as a panel you are being handed the
+   keys to, not a poster. */
+.landing-hero{
+  position:relative;
+  min-height:calc(100vh - 61px);
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:56px;
+  padding:48px 28px 96px;
+  max-width:1180px;
+  margin:0 auto;
+}
+
+.landing-hero-copy{
+  flex:1 1 420px;
+  max-width:560px;
+  opacity:0;
+  transform:translateY(14px);
+  transition:opacity 620ms ease-out, transform 620ms ease-out;
+}
+.landing-hero-copy.is-ready{ opacity:1; transform:translateY(0); }
+
+.landing-hero-copy h1{
+  font-size:clamp(32px, 4.6vw, 50px);
+  font-weight:800;
+  line-height:1.08;
+  letter-spacing:-0.02em;
+  color:var(--ink);
+  transition:opacity 560ms ease-out 80ms, transform 560ms ease-out 80ms;
+}
+.landing-hero-copy p{
+  margin-top:20px;
+  max-width:52ch;
+  font-size:15.5px;
+  line-height:1.6;
+  color:var(--ink-dim);
+}
+.landing-hero-actions{
+  margin-top:32px;
+  display:flex;
+  align-items:center;
+  gap:14px;
+  flex-wrap:wrap;
+}
+
+.landing-btn{
+  border:0;
+  border-radius:var(--radius-sm);
+  padding:13px 22px;
+  font-size:13.5px;
+  font-weight:700;
+  cursor:pointer;
+}
+.landing-btn.primary{
+  background:linear-gradient(135deg, var(--accent-bright), var(--accent));
+  color:#0b0b0d;
+  box-shadow:0 0 18px rgba(234,179,8,0.28);
+}
+.landing-btn.primary:hover{ box-shadow:0 0 24px rgba(234,179,8,0.42); }
+:root[data-theme="light"] .landing-btn.primary{ color:#FFFFFF; }
+.landing-btn.ghost{
+  background:var(--panel-raised);
+  color:var(--ink);
+  border:1px solid var(--line-strong);
+}
+.landing-btn.ghost:hover{ background:var(--panel-hover); }
+
+/* ---------- radar scope ----------
+   The one bold, non-user-triggered moment on the page: a live-reading
+   instrument, not decoration -- the same severity colours and pulse
+   language used on the real map (see MapPanel.css's .pulse-dot). */
+.landing-scope{
+  position:relative;
+  flex:none;
+  width:min(340px, 40vw);
+  aspect-ratio:1;
+  opacity:0;
+  transition:opacity 900ms ease-out 200ms;
+}
+.landing-scope.is-ready{ opacity:1; }
+
+.scope-ring{
+  position:absolute;
+  border-radius:50%;
+  border:1px solid var(--line-strong);
+  background:radial-gradient(circle at 50% 50%, rgba(234,179,8,0.05), transparent 70%);
+}
+.scope-ring-1{ inset:0; }
+.scope-ring-2{ inset:16%; }
+.scope-ring-3{ inset:32%; }
+
+.scope-sweep{
+  position:absolute;
+  inset:0;
+  border-radius:50%;
+  background:conic-gradient(from 0deg, transparent 0deg, rgba(234,179,8,0.38) 36deg, transparent 92deg);
+  animation:scope-rotate 5s linear infinite;
+}
+@keyframes scope-rotate{ to{ transform:rotate(360deg); } }
+
+.scope-blip{
+  position:absolute;
+  width:10px;
+  height:10px;
+  margin:-5px;
+  border-radius:50%;
+  animation:scope-pulse 2.4s ease-in-out infinite;
+}
+.scope-blip.sev-green{ background:var(--sev-green); box-shadow:0 0 10px var(--sev-green); }
+.scope-blip.sev-yellow{ background:var(--sev-yellow); box-shadow:0 0 10px var(--sev-yellow); }
+.scope-blip.sev-orange{ background:var(--sev-orange); box-shadow:0 0 12px var(--sev-orange); }
+.scope-blip.sev-red{ background:var(--sev-red); box-shadow:0 0 12px var(--sev-red); }
+@keyframes scope-pulse{
+  0%,100%{ opacity:0.55; transform:scale(0.85); }
+  50%{ opacity:1; transform:scale(1.15); }
+}
+
+@media (max-width: 900px){
+  .landing-hero{
+    flex-direction:column;
+    justify-content:flex-start;
+    min-height:0;
+    gap:40px;
+    padding-top:40px;
+  }
+  .landing-scope{ width:min(280px, 60vw); margin:0 auto; }
+}
+
+.landing-scroll-cue{
+  position:absolute;
+  left:50%;
+  bottom:28px;
+  transform:translateX(-50%);
+  width:38px;
+  height:38px;
+  border-radius:50%;
+  background:var(--panel-raised);
+  border:1px solid var(--line);
+  color:var(--ink-faint);
+  cursor:pointer;
+  animation:scroll-cue-bob 2.2s ease-in-out infinite;
+}
+.landing-scroll-cue:hover{ color:var(--ink); }
+@keyframes scroll-cue-bob{
+  0%,100%{ transform:translate(-50%, 0); }
+  50%{ transform:translate(-50%, 6px); }
+}
+
+/* ---------- mission strip ---------- */
+.landing-mission{
   display:flex;
   align-items:center;
   justify-content:center;
-  padding:24px;
-  background:
-    radial-gradient(ellipse at top, rgba(212,175,55,0.08), transparent 60%),
-    var(--bg);
+  gap:48px;
+  padding:44px 28px;
+  border-top:1px solid var(--line);
+  border-bottom:1px solid var(--line);
+  background:var(--panel);
+  flex-wrap:wrap;
+}
+.mission-stat{ display:flex; flex-direction:column; align-items:center; gap:6px; }
+/* The shared .mono class's tight tracking is tuned for small 11-14px data
+   readouts elsewhere in the app; at this display size it visibly crowds
+   the glyphs, so it is undone here. */
+.mission-num{ font-size:34px; font-weight:700; color:var(--ink); letter-spacing:normal; font-variant-numeric:normal; }
+.mission-label{ font-size:12.5px; color:var(--ink-dim); }
+.mission-divider{ width:1px; height:40px; background:var(--line-strong); }
+@media (max-width: 640px){
+  .mission-divider{ display:none; }
+  .landing-mission{ gap:28px; }
+}
+
+/* ---------- capabilities ----------
+   A divided list, not a grid of identical cards -- these are five distinct
+   things the console does, not interchangeable feature tiles. */
+.landing-capabilities{
+  max-width:920px;
+  margin:0 auto;
+  padding:96px 28px;
+}
+.capabilities-intro{ max-width:56ch; margin-bottom:40px; }
+.capabilities-intro h2{ font-size:28px; font-weight:800; letter-spacing:-0.01em; }
+.capabilities-intro p{ margin-top:12px; font-size:14.5px; line-height:1.6; color:var(--ink-dim); }
+
+.capability-row{
+  display:flex;
+  align-items:flex-start;
+  gap:18px;
+  padding:22px 0;
+  border-top:1px solid var(--line);
+}
+.capability-row:last-child{ border-bottom:1px solid var(--line); }
+.capability-row i{
+  flex:none;
+  width:38px;
+  height:38px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:var(--radius-sm);
+  background:var(--panel-raised);
+  border:1px solid var(--line);
+  color:var(--accent-bright);
+  font-size:15px;
+}
+.capability-row h3{ font-size:15.5px; font-weight:700; color:var(--ink); }
+.capability-row p{ margin-top:5px; font-size:13.5px; line-height:1.55; color:var(--ink-dim); max-width:62ch; }
+
+/* ---------- case studies ----------
+   Real, named events, not a feature-tile grid -- each card is a distinct
+   place and year, so the year is the structural marker (not a decorative
+   numbered badge), set in the same mono style the rest of the console uses
+   for anything that is a real, checkable fact. */
+.landing-impact{
+  max-width:1020px;
+  margin:0 auto;
+  padding:0 28px 96px;
+}
+.impact-intro{ max-width:60ch; margin-bottom:32px; }
+.impact-intro h2{ font-size:28px; font-weight:800; letter-spacing:-0.01em; }
+.impact-intro p{ margin-top:12px; font-size:14.5px; line-height:1.6; color:var(--ink-dim); }
+
+.case-study-grid{
+  display:grid;
+  grid-template-columns:repeat(3, 1fr);
+  gap:20px;
+}
+@media (max-width: 900px){
+  .case-study-grid{ grid-template-columns:1fr; }
+}
+
+.case-study-card{
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  padding:22px;
+}
+.case-study-year{
+  display:inline-block;
+  font-size:12px;
+  color:var(--accent-bright);
+  margin-bottom:10px;
+}
+.case-study-card h3{ font-size:18px; font-weight:800; }
+.case-study-title{
+  margin-top:4px;
+  margin-bottom:12px;
+  font-size:12.5px;
+  font-weight:700;
+  color:var(--ink-dim);
+}
+.case-study-card > p:last-child{ font-size:13.5px; line-height:1.6; color:var(--ink-dim); }
+
+/* ---------- get started (auth) ---------- */
+.landing-start{
+  display:flex;
+  justify-content:center;
+  padding:96px 28px;
+  background:var(--panel);
+  border-top:1px solid var(--line);
 }
 
 .auth-gate-card{
   width:min(420px, 100%);
   display:flex;
   flex-direction:column;
-  background:var(--panel);
+  background:var(--panel-raised);
   border:1px solid var(--line-strong);
   border-radius:var(--radius);
   box-shadow:0 28px 70px rgba(0,0,0,0.5);
@@ -49,11 +373,11 @@
   color:var(--ink-dim);
 }
 
-.auth-gate .auth-tabs{
+.landing-start .auth-tabs{
   display:flex;
   border-bottom:1px solid var(--line);
 }
-.auth-gate .auth-tab{
+.landing-start .auth-tab{
   flex:1;
   appearance:none;
   background:none;
@@ -63,44 +387,41 @@
   font-size:12.5px;
   font-weight:700;
   letter-spacing:0.03em;
-  text-transform:uppercase;
   color:var(--ink-dim);
   cursor:pointer;
 }
-.auth-gate .auth-tab:hover{ color:var(--ink); }
-.auth-gate .auth-tab.active{ color:var(--ink); border-bottom-color:var(--accent); }
+.landing-start .auth-tab:hover{ color:var(--ink); }
+.landing-start .auth-tab.active{ color:var(--ink); border-bottom-color:var(--accent); }
 
-.auth-gate .auth-form{
+.landing-start .auth-form{
   display:flex;
   flex-direction:column;
   gap:14px;
   padding:20px 24px 24px;
 }
-.auth-gate .auth-form label{
+.landing-start .auth-form label{
   display:flex;
   flex-direction:column;
   gap:6px;
   font-size:11.5px;
   font-weight:700;
   letter-spacing:0.04em;
-  text-transform:uppercase;
   color:var(--ink-faint);
 }
-.auth-gate .auth-form input{
-  background:var(--panel-raised);
+.landing-start .auth-form input{
+  background:var(--panel);
   border:1px solid var(--line);
   border-radius:var(--radius-sm);
   padding:11px 13px;
   font-size:14px;
   font-weight:500;
-  text-transform:none;
   letter-spacing:normal;
   color:var(--ink);
   outline:none;
 }
-.auth-gate .auth-form input:focus{ border-color:var(--accent-bright); box-shadow:var(--accent-wash) 0 0 0 3px; }
+.landing-start .auth-form input:focus{ border-color:var(--accent-bright); box-shadow:var(--accent-wash) 0 0 0 3px; }
 
-.auth-gate .auth-notice{
+.landing-start .auth-notice{
   margin:0;
   padding:9px 11px;
   border:1px solid var(--accent-bright);
@@ -109,7 +430,7 @@
   color:var(--ink);
   font-size:12.5px;
 }
-.auth-gate .auth-error{
+.landing-start .auth-error{
   margin:0;
   padding:9px 11px;
   border:1px solid var(--sev-red);
@@ -119,7 +440,7 @@
   font-size:12.5px;
 }
 
-.auth-gate .auth-submit{
+.landing-start .auth-submit{
   margin-top:4px;
   display:inline-flex;
   align-items:center;
@@ -135,11 +456,14 @@
   cursor:pointer;
   box-shadow:0 0 14px rgba(234,179,8,0.28);
 }
-.auth-gate .auth-submit:hover{ box-shadow:0 0 20px rgba(234,179,8,0.42); }
-.auth-gate .auth-submit:disabled{ opacity:0.6; cursor:default; box-shadow:none; }
-:root[data-theme="light"] .auth-gate .auth-submit{ color:#FFFFFF; }
+.landing-start .auth-submit:hover{ box-shadow:0 0 20px rgba(234,179,8,0.42); }
+.landing-start .auth-submit:disabled{ opacity:0.6; cursor:default; box-shadow:none; }
+:root[data-theme="light"] .landing-start .auth-submit{ color:#FFFFFF; }
 
-@media (max-width: 480px){
-  .auth-gate-brand{ padding:22px 18px 18px; }
-  .auth-gate .auth-form{ padding:18px 18px 20px; }
+/* ---------- footer ---------- */
+.landing-footer{
+  padding:26px 28px;
+  text-align:center;
+  font-size:12px;
+  color:var(--ink-faint);
 }

@@ -1,0 +1,121 @@
+/* ---------- engine panel ---------- */
+.engine-panel .ep-head-count{ font-size:11.5px; color:var(--ink-faint); flex:none; }
+
+.ep-context{
+  font-size:12px;
+  line-height:1.55;
+  color:var(--ink-dim);
+  margin-bottom:14px;
+}
+
+.ep-section{ margin-bottom:14px; }
+.ep-section-title{
+  font-size:10.5px;
+  font-weight:700;
+  letter-spacing:0.05em;
+  text-transform:uppercase;
+  color:var(--ink-faint);
+  margin-bottom:8px;
+}
+
+/* Same chip at the same moment sharing the same colour is the whole point --
+   it is what reads as "these are running at once" rather than a sequence. */
+.ep-region-grid{ display:flex; flex-wrap:wrap; gap:7px; }
+.ep-region-chip{
+  padding:5px 10px;
+  border-radius:20px;
+  border:1px solid var(--line);
+  background:var(--panel-raised);
+  color:var(--ink-faint);
+  font-size:11px;
+  transition:background 200ms ease-out, border-color 200ms ease-out, color 200ms ease-out;
+}
+.ep-region-chip.active{
+  border-color:var(--accent-bright);
+  background:var(--accent-wash);
+  color:var(--ink);
+  box-shadow:0 0 10px rgba(234,179,8,0.25);
+}
+
+.ep-metric{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:5px 0;
+  font-size:11.5px;
+}
+.ep-metric-label{ flex:0 0 78px; color:var(--ink-dim); }
+.ep-metric-track{
+  flex:1 1 auto;
+  height:6px;
+  border-radius:3px;
+  background:var(--seq-soft);
+  overflow:hidden;
+}
+.ep-metric-fill{
+  display:block;
+  height:100%;
+  border-radius:3px;
+  background:var(--accent-bright);
+  transition:width 500ms ease-out;
+}
+.ep-metric-val{ flex:0 0 32px; text-align:right; color:var(--ink-dim); }
+
+.ep-graph{
+  border:1px solid var(--line);
+  border-radius:var(--radius-sm);
+  background:var(--panel-raised);
+  padding:10px 12px;
+  margin-bottom:14px;
+}
+.ep-graph svg{ width:100%; height:64px; display:block; }
+.ep-graph-line{
+  fill:none;
+  stroke:var(--accent-bright);
+  stroke-width:1.6;
+  stroke-linejoin:round;
+  stroke-linecap:round;
+  filter:drop-shadow(0 0 4px rgba(234,179,8,0.35));
+}
+
+/* tqdm-style progress line: this single, very recognizable pattern reads as
+   "real training output" to anyone who has watched a model train, more than
+   any amount of additional log volume would. */
+.ep-progress{
+  font-size:11.5px;
+  color:var(--ink-dim);
+  margin-bottom:8px;
+}
+.ep-progress::before{ content:'$ '; color:var(--ink-faint); }
+
+.ep-terminal{
+  height:220px;
+  overflow-y:auto;
+  background:#050506;
+  border:1px solid var(--line);
+  border-radius:var(--radius-sm);
+  padding:10px 12px;
+  font-family:'JetBrains Mono', ui-monospace, 'Cascadia Code', monospace;
+  font-size:11.5px;
+  line-height:1.7;
+}
+.ep-line{ display:flex; gap:8px; white-space:pre-wrap; }
+.ep-line-time{ flex:none; color:#3f6f4c; }
+.ep-line-level{ flex:none; font-weight:700; }
+.ep-line-text{ color:#c7d1c9; }
+.ep-level-info{ color:#8fe3a8; }
+.ep-level-debug{ color:#5c6f78; }
+.ep-level-warn{ color:#eab308; }
+
+/* A real terminal never looks finished -- the cursor is what says so. */
+.ep-cursor{
+  display:inline-block;
+  width:7px;
+  height:12px;
+  margin-left:2px;
+  background:#8fe3a8;
+  animation:ep-blink 1s steps(1, jump-none) infinite;
+}
+@keyframes ep-blink{ 50%{ opacity:0; } }
+
+:root[data-theme="light"] .ep-terminal{ background:#0B0D0A; }

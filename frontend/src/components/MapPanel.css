@@ -92,14 +92,23 @@
 }
 .map-fullscreen-exit:hover{ background:var(--panel-hover); }
 
-/* Recenter: always available, unlike the exit-fullscreen button. Sits under
-   MapLibre's own zoom control (top-right) rather than beside it, so the two
-   don't crowd the same corner. */
-.map-recenter{
+/* One flex column instead of each button hardcoding its own top offset --
+   the AI toggle only exists for one region, so a fixed-offset layout left a
+   gap (or an overlap) depending which buttons happened to be present.
+   Sits under MapLibre's own zoom control (top-right) rather than beside it,
+   so the two don't crowd the same corner. */
+.map-controls-stack{
   position:absolute;
   top:78px;
   right:12px;
   z-index:6;
+  display:flex;
+  flex-direction:column;
+  align-items:flex-end;
+  gap:10px;
+}
+
+.map-recenter{
   display:flex;
   align-items:center;
   justify-content:center;
@@ -120,10 +129,6 @@
    console's primary data), so it reads as a secondary, opt-in affordance
    rather than sitting gold/active like a real selection. */
 .map-ai-toggle{
-  position:absolute;
-  top:122px;
-  right:12px;
-  z-index:6;
   display:flex;
   align-items:center;
   gap:7px;
@@ -138,6 +143,7 @@
   letter-spacing:0.03em;
   cursor:pointer;
   box-shadow:0 4px 16px rgba(0,0,0,0.4);
+  white-space:nowrap;
 }
 .map-ai-toggle:hover{ background:var(--panel-hover); }
 .map-ai-toggle.active{
@@ -145,6 +151,33 @@
   background:var(--accent-wash);
 }
 .map-ai-toggle i{ color:var(--accent-bright); }
+
+/* Synthetic-data injection: a deliberately different accent (not gold) so
+   it never reads as "this is real data" -- it is a demo action, closer in
+   register to the AI-forecast beta toggle than to a genuine control. */
+.map-synthetic-toggle{
+  display:flex;
+  align-items:center;
+  gap:7px;
+  background:var(--overlay-bg);
+  backdrop-filter:blur(8px);
+  border:1px solid var(--line-strong);
+  color:var(--ink);
+  padding:7px 13px;
+  border-radius:var(--radius-sm);
+  font-size:11px;
+  font-weight:700;
+  letter-spacing:0.03em;
+  cursor:pointer;
+  box-shadow:0 4px 16px rgba(0,0,0,0.4);
+  white-space:nowrap;
+}
+.map-synthetic-toggle:hover{ background:var(--panel-hover); }
+.map-synthetic-toggle.active{
+  border-color:var(--sev-orange);
+  background:rgba(226,101,15,0.14);
+}
+.map-synthetic-toggle.active i{ color:var(--sev-orange); }
 
 /* Sits low, out of the way of the legend/tooltip -- present at all times
    the overlay is on since the disclaimer is load-bearing, not optional. */

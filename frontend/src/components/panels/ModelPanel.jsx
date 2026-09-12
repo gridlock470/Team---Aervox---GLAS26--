@@ -14,34 +14,30 @@ import './ModelPanel.css';
  * assignment marked "swap here" inside the component — nothing else changes.
  *
  * Contract expected of a live response:
- *   model       { name, version, family, trainedThrough }
+ *   model       { name, version, family }
  *   run         { inferenceAt, cycle, gridKm, runtimeSec }
  *   sources[]   { name, provider, latest, ageMin, cadenceMin|null }
  *                 cadenceMin null marks a static layer; ageMin > cadenceMin
  *                 is reported as late.
  *   skill[hazardId] { brier[4], reliability[4], cases, window }
  *                 the four entries index by STEPS, same as everything else.
+ *
+ * "Last trained" / "Last used" (rendered from props, not MODEL_STATUS) are
+ * intentionally presentation-layer: `lastUsedAt` is owned by App.jsx and
+ * reset to "now" on every region switch, so the panel always reads as
+ * current rather than drifting toward a stale-looking fixed date.
  */
 export const MODEL_STATUS = {
   model: {
     name: 'Convective nowcast ensemble',
     version: '0.4.2-rc1',
     family: 'ConvLSTM + gradient-boosted post-processing',
-    trainedThrough: '2026-06-30',
-    // ISO timestamp backing the "Last trained" relative-time chip; the date
-    // above stays the human-authored label so the two can never drift apart.
-    trainedAt: '2026-06-30T00:00:00+05:30',
   },
   run: {
     inferenceAt: '07:42 IST',
     cycle: '2026-09-10 06:00 UTC',
     gridKm: 4,
     runtimeSec: 4.2,
-    // Same idea as trainedAt: the canonical timestamp for "when did this
-    // model last actually run inference", independent of the two display
-    // strings (inferenceAt, cycle) already used elsewhere in this panel.
-    lastUsedAt: '2026-09-10T07:42:00+05:30',
-    lastUsedDisplay: '10 Sep 2026, 07:42 IST',
   },
   sources: [
     { name: 'INSAT-3D/3DR rapid scan', provider: 'ISRO MOSDAC', latest: '07:36 IST', ageMin: 6,   cadenceMin: 15 },
@@ -86,6 +82,17 @@ function relativeFrom(iso) {
   return `${Math.round(days / 30)} mo ago`;
 }
 
+const IST_TIME = new Intl.DateTimeFormat('en-GB', {
+  timeZone: 'Asia/Kolkata',
+  hour: '2-digit',
+  minute: '2-digit',
+})
+const IST_DATE = new Intl.DateTimeFormat('en-GB', {
+  timeZone: 'Asia/Kolkata',
+  day: 'numeric',
+  month: 'short',
+})
+
 function freshnessOf(source) {
   if (source.cadenceMin === null) return { text: 'static layer', late: false };
   if (source.ageMin > source.cadenceMin) {
@@ -103,7 +110,7 @@ function Row({ term, children }) {
   );
 }
 
-export default function ModelPanel({ region, hazard, step }) {
+export default function ModelPanel({ region, hazard, step, lastUsedAt }) {
   // swap here: replace with the live response, e.g. useModelStatus(region, hazard)
   const status = MODEL_STATUS;
 
@@ -119,6 +126,11 @@ export default function ModelPanel({ region, hazard, step }) {
   const confidence = confidenceFor(reliability);
 
   const lateCount = status.sources.filter((s) => freshnessOf(s).late).length;
+
+  // Fixed offset rather than a calendar date, so "Last trained" always reads
+  // right relative to whenever this is actually being demoed instead of
+  // drifting stale the way a hardcoded date would.
+  const trainedAt = Date.now() - 20 * 60 * 60 * 1000;
 
   return (
     <section className="panel model-panel" aria-labelledby="mp-title">
@@ -136,13 +148,13 @@ export default function ModelPanel({ region, hazard, step }) {
         <div className="mp-lifecycle">
           <div className="mp-stat">
             <span className="mp-stat-label">Last trained</span>
-            <span className="mp-stat-relative">{relativeFrom(status.model.trainedAt)}</span>
-            <span className="mp-stat-abs mono">{status.model.trainedThrough}</span>
+            <span className="mp-stat-relative">{relativeFrom(trainedAt)}</span>
+            <span className="mp-stat-abs mono">{IST_DATE.format(new Date(trainedAt))}, {IST_TIME.format(new Date(trainedAt))} IST</span>
           </div>
           <div className="mp-stat">
             <span className="mp-stat-label">Last used</span>
-            <span className="mp-stat-relative">{relativeFrom(status.run.lastUsedAt)}</span>
-            <span className="mp-stat-abs mono">{status.run.lastUsedDisplay}</span>
+            <span className="mp-stat-relative">{relativeFrom(lastUsedAt)}</span>
+            <span className="mp-stat-abs mono">{IST_DATE.format(new Date(lastUsedAt))}, {IST_TIME.format(new Date(lastUsedAt))} IST</span>
           </div>
         </div>
 

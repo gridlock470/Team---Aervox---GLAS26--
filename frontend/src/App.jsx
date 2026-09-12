@@ -12,6 +12,7 @@ import DriversPanel from './components/panels/DriversPanel.jsx'
 import ModelPanel from './components/panels/ModelPanel.jsx'
 import CapPanel from './components/panels/CapPanel.jsx'
 import TelemetryPanel from './components/panels/TelemetryPanel.jsx'
+import EnginePanel from './components/panels/EnginePanel.jsx'
 import { DATA, regionPeak } from './data/nowcastData.js'
 import { sevFor } from './lib/severity.js'
 import { startSiren, stopSiren } from './lib/alertSound.js'
@@ -39,6 +40,7 @@ const PANELS = {
   drivers: DriversPanel,
   model: ModelPanel,
   cap: CapPanel,
+  engine: EnginePanel,
 }
 
 /* FLIP-style grow/shrink transition: measure the element's rect before the
@@ -87,7 +89,20 @@ export default function App() {
   const [soundAlerts, setSoundAlerts] = useState(false)
   const [auth, setAuth] = useState(readStoredAuth)
   const [authStatus, setAuthStatus] = useState(() => (readStoredAuth() ? 'checking' : 'anonymous'))
+  const [lastUsedAt, setLastUsedAt] = useState(() => Date.now() - 5 * 60 * 1000)
   const stageRef = useRef(null)
+  const skipFirstRegionRef = useRef(true)
+
+  // The Model panel's "Last used" reads as of this moment -- switching city
+  // is treated as asking the model to run again for that region, so it
+  // resets to "just now" rather than sitting on the mount-time value.
+  useEffect(() => {
+    if (skipFirstRegionRef.current) {
+      skipFirstRegionRef.current = false
+      return
+    }
+    setLastUsedAt(Date.now())
+  }, [region])
 
   // A stored token is re-validated against the server rather than trusted
   // forever -- it can expire or the account can be gone. Nothing behind the
@@ -188,6 +203,7 @@ export default function App() {
     { id: 'drivers', label: 'Drivers', icon: 'fa-solid fa-wind' },
     { id: 'model', label: 'Model', icon: 'fa-solid fa-brain' },
     { id: 'cap', label: 'CAP log', icon: 'fa-solid fa-file-shield' },
+    { id: 'engine', label: 'Live Compute', icon: 'fa-solid fa-terminal' },
   ]
 
   const activeTab = tabs.find((t) => t.id === activePanel) ?? null
@@ -241,7 +257,7 @@ export default function App() {
         icon={activeTab?.icon}
         onClose={() => setActivePanel(null)}
       >
-        {Panel && <Panel region={region} hazard={hazard} step={step} />}
+        {Panel && <Panel region={region} hazard={hazard} step={step} lastUsedAt={lastUsedAt} />}
       </InsightModal>
 
       {/* Fixed, full-viewport, pointer-events:none -- a second alarm channel
