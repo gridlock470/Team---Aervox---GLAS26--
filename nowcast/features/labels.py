@@ -279,5 +279,16 @@ def write_labels(da: xr.DataArray, path: str | Path) -> Path:
 
 
 def open_labels(path: str | Path) -> xr.DataArray:
-    """Open (and eagerly load) labels written by :func:`write_labels`."""
-    return xr.open_dataset(Path(path))["hazard_probability"].load()
+    """Open (and eagerly load) a label store: NetCDF file or Zarr directory.
+
+    :func:`write_labels` produces a NetCDF file, but the batch build script
+    writes a Zarr store for chunked access. Both carry the same
+    ``hazard_probability`` variable, so dispatch on what is actually on disk
+    rather than making every caller know which producer ran: a directory is a
+    Zarr store, anything else is NetCDF. Handing a Zarr directory to
+    ``open_dataset`` fails with a bare PermissionError on Windows, which says
+    nothing about the real mismatch.
+    """
+    path = Path(path)
+    ds = xr.open_zarr(path) if path.is_dir() else xr.open_dataset(path)
+    return ds["hazard_probability"].load()
