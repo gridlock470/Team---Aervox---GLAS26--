@@ -184,6 +184,20 @@ RANDOM_SEED: int = 1234
 # Known tradeoff: the 2-3 May 2018 demo outbreak falls in TRAIN, so skill
 # quoted on it is in-sample. Move May into TEST if a held-out demo matters
 # more than training signal.
-TRAIN_DATE_RANGE: tuple[str, str] = ("2018-04-01", "2018-07-31")
-VAL_DATE_RANGE: tuple[str, str] = ("2018-08-01", "2018-08-25")
-TEST_DATE_RANGE: tuple[str, str] = ("2018-08-26", "2018-09-30")
+# Boundaries chosen from measured event dates, not round numbers. Cloudburst
+# fires on exactly EIGHT dates in the whole record -- 2018-06-26, 07-01, 07-21,
+# 07-25, 08-11, 08-12, 08-13, 08-17 -- and September has none at all. An
+# earlier cut ending test in September therefore gave test ZERO cloudburst and
+# zero flash-flood windows, leaving two of three hazards with no held-out
+# evaluation at all.
+#
+# These boundaries place cloudburst dates in every split (train 4, val 3,
+# test 1) while staying chronological, so no future information reaches
+# training.
+#
+# Be honest about what this supports: one cloudburst date in test is token
+# coverage, not a statistically meaningful held-out score. Thunderstorm is the
+# only hazard with enough events to evaluate properly. Report it that way.
+TRAIN_DATE_RANGE: tuple[str, str] = ("2018-04-01", "2018-08-05")
+VAL_DATE_RANGE: tuple[str, str] = ("2018-08-06", "2018-08-14")
+TEST_DATE_RANGE: tuple[str, str] = ("2018-08-15", "2018-09-30")
