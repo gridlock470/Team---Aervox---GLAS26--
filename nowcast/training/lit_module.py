@@ -120,6 +120,15 @@ class LitNowcast(L.LightningModule):
         self.log(f"{stage}_frequency_bias", agg("frequency_bias"))
         if is_val and any("storm/csi" in s for s in buf):
             self.log("val_storm_csi", agg("storm/csi"), prog_bar=True)
+        # Aggregate csi is a nanmean over every hazard x lead and is dominated
+        # by thunderstorm, which fires ~1000x more often than cloudburst or
+        # flash_flood (see nowcast/config.py). NowcastMetrics already computes
+        # a per-hazard breakdown (the "csi/<hazard>" keys in `scores`) but it
+        # was being discarded here -- without it, a change meant to help the
+        # rare hazards specifically (e.g. hazard_weights) is invisible in the
+        # headline number. Logged per hazard so it shows up in metrics.csv.
+        for hazard in config.HAZARDS:
+            self.log(f"{stage}_csi/{hazard}", agg(f"csi/{hazard}"))
         buf.clear()
 
     def on_train_epoch_end(self) -> None:
