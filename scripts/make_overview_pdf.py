@@ -188,6 +188,34 @@ def build() -> Path:
                          f"lead hours x {n_lat} x {n_lon} probability maps"),
     ], st))
 
+    s.append(Paragraph("Languages, and why each one", st["h1"]))
+    s.append(Paragraph(
+        "Three languages, each chosen for a job the others do worse.", st["body"]))
+    s.append(stack_table([
+        ("Python", "the whole data and model pipeline",
+         "The scientific stack is the reason. xarray and Zarr handle labelled "
+         "N-dimensional weather data natively; MetPy implements the convective "
+         "diagnostics (CAPE, CIN, lifted index) to meteorological standards, so we "
+         "do not re-derive thermodynamics by hand; PyTorch trains the model. "
+         "Rewriting any of that in a faster language would cost months and forfeit "
+         "correctness the domain libraries already guarantee."),
+        ("JavaScript (React)", "the operator console",
+         "The console is a live map with GPU-drawn probability layers. MapLibre GL "
+         "and deck.gl have no serious equivalent outside JavaScript, and the browser "
+         "is the only runtime a district control room can open without installing "
+         "anything."),
+        ("SQL (PostGIS)", "spatial and time-series storage",
+         "Alert areas are polygons; forecasts are a time series. Both are database "
+         "problems with mature answers -- PostGIS for geometry, TimescaleDB for "
+         "append-heavy history -- not problems to solve in application code."),
+    ], st))
+    s.append(Paragraph(
+        "On Python and speed: the usual objection is that Python is slow. It is not "
+        "the bottleneck here. The numerical work runs inside compiled NumPy and "
+        "PyTorch kernels, and the operational budget is dominated by network I/O and "
+        "inference, not interpreter overhead. Where a hot loop did threaten the "
+        "budget, the fix was vectorisation, not a change of language.", st["body"]))
+
     s.append(Paragraph("Why this is different", st["h1"]))
     s.append(bullets([
         "<b>It targets the regime the benchmarks skip.</b> BharatBench, the established "
@@ -285,6 +313,35 @@ def build() -> Path:
         "GPU-accelerated inference where hardware allows.",
     ], st))
 
+    s.append(Paragraph("Where the latency budget goes", st["h2"]))
+    s.append(Paragraph(
+        "The target is a processing budget measured in minutes, against pipelines "
+        "that currently take hours. The budget is spent roughly as follows, and each "
+        "line is an engineering decision rather than an aspiration:", st["body"]))
+    s.append(kv_table([
+        ("Ingest the newest slice",
+         "Incremental only. The archive is never re-read; one time step is appended "
+         "to the datacube."),
+        ("Derive lead signals",
+         "Vectorised array operations over a 38 x 49 grid. Small by construction -- "
+         "the pilot domain is 1,862 cells, not a national grid."),
+        ("Terrain context",
+         "Zero cost at run time. Flow accumulation, flow direction and HAND are "
+         "precomputed once, offline, and simply read."),
+        ("Inference",
+         "A single forward pass producing all three hazards and all six lead hours "
+         "at once, because the heads share one backbone."),
+        ("Publish and alert",
+         "Probability rasters written as map tiles; CAP alerts generated "
+         "asynchronously so alerting never blocks the forecast path."),
+    ], st))
+    s.append(Paragraph(
+        "Two design choices do most of the work. The multi-task backbone means three "
+        "hazards cost one forward pass rather than three. And precomputing terrain "
+        "routing moves the most expensive geospatial work out of the operational path "
+        "entirely -- it is the same rasters every run, so computing them per cycle "
+        "would be pure waste.", st["body"]))
+
     s.append(Paragraph("An honest distinction", st["h2"]))
     s.append(Paragraph(
         "Two different quantities are often conflated. <b>Processing latency</b> is the time "
@@ -371,6 +428,45 @@ def build() -> Path:
         ("ERA5", "ECMWF, 0.25 deg, hourly",
          "Self-service substitute where queued national sources cannot arrive in time."),
     ], st))
+
+    s.append(Paragraph("Region-specific behaviour", st["h2"]))
+    s.append(Paragraph(
+        "The pilot deliberately spans two regimes that behave nothing alike: the "
+        "Himalayan slopes of Uttarakhand, where orographic lift drives cloudbursts "
+        "and steep terrain converts rain into flash floods within the hour, and the "
+        "Delhi NCR plains, where convection is thermally driven and the same rainfall "
+        "produces urban inundation rather than a torrent. A single set of thresholds "
+        "applied to both would be wrong in one of them.", st["body"]))
+    s.append(Paragraph(
+        "Our own label audit measured the split rather than assuming it. Across "
+        "9.07 million cell-timesteps, thunderstorm positives appear in all 1,862 grid "
+        "cells with the top decile holding only 22.6&nbsp;% of them -- spread evenly, as "
+        "thermal convection should be. Cloudburst positives occur in just 111 cells "
+        "and flash-flood positives in 177, tightly clustered on the orography. The "
+        "two hazard families are not merely rarer; they live in different places.",
+        st["body"]))
+    s.append(Paragraph("The system encodes that in four ways:", st["body"]))
+    s.append(bullets([
+        "<b>Terrain as a model input.</b> Elevation, slope, flow accumulation and "
+        "height-above-nearest-drainage are computed once from a 30&nbsp;m DEM and fed to "
+        "the network as static channels. The model learns the regional distinction "
+        "from the terrain itself rather than from a region label pasted on top.",
+        "<b>A dedicated flash-flood head.</b> Routed terrain context goes to the "
+        "flash-flood branch specifically, so it can distinguish rain that runs "
+        "downhill into a valley from rain that pools on a plain.",
+        "<b>Per-region normalisation and calibration.</b> Statistics are fitted per "
+        "region, because a 99th-percentile rainfall hour in the hills is not the same "
+        "number as in the plains. Calibration is fitted the same way, so a stated "
+        "70&nbsp;% means the same thing in both.",
+        "<b>Region-aware thresholds.</b> Hazard criteria are configuration, not "
+        "hard-coded constants, so each region carries the rainfall and accumulation "
+        "thresholds its own climatology supports.",
+    ], st))
+    s.append(Paragraph(
+        "The practical consequence is that adding a third region is a configuration "
+        "and retraining exercise, not a rewrite. The bounding box, grid and hazard "
+        "criteria all live in one configuration module; nothing in the architecture "
+        "is specific to these two regions.", st["body"]))
 
     s.append(Paragraph("Positioning against existing work", st["h2"]))
     s.append(Paragraph(
