@@ -1,3 +1,5 @@
+import liveNowcast from './liveNowcast.json';
+
 export const HAZARDS = [
   { id: 'thunderstorm', name: 'Severe thunderstorm' },
   { id: 'cloudburst',   name: 'Cloudburst' },
@@ -23,6 +25,7 @@ export const DATA = {
     title: 'Uttarakhand',
     subtitle: 'Rudraprayag–Dehradun corridor',
     stations: {
+      dhauliganga: { name: 'Upper Dhauliganga basin', lat: 31.2000, lng: 79.4000 },
       kedarnath:   { name: 'Kedarnath approach', lat: 30.7346, lng: 79.0669 },
       rudraprayag: { name: 'Rudraprayag',        lat: 30.2844, lng: 78.9811 },
       dehradun:    { name: 'Dehradun',           lat: 30.3165, lng: 78.0322 },
@@ -111,6 +114,63 @@ export const DATA = {
       { sev:'yellow', id:'IN-DL-20260910-0715', headline:'Waterlogging likely along Yamuna floodplain roads', area:'South Delhi', window:'12:00–16:00 IST', sent:'07:15 IST' },
     ],
   },
+};
+
+/* ---------- real model output ----------
+   liveNowcast.json is written by scripts/make_live_nowcast.py: LightGBM
+   boosters trained on 2018 ERA5 + IMERG + DEM, run over the feature cube at
+   one timestamp. Probabilities are booster predictions at the grid cell
+   nearest each station; driver values are the actual feature-channel values
+   there; driver weights are the booster's own gain importances.
+
+   The overlay is applied per hazard, so anything the export does not cover
+   keeps the illustrative values it had -- and MODEL_META records which is
+   which, rather than leaving the two indistinguishable on screen. */
+let live = null;
+try {
+  live = liveNowcast;
+} catch {
+  live = null;
+}
+
+/* The pipeline names hazards with underscores (config.HAZARDS); the console
+   uses the compact form. Mapping them here rather than renaming either side
+   mid-demo. */
+const HAZARD_ALIAS = { flash_flood: 'flashflood' };
+
+if (live?.regions) {
+  for (const [regionId, region] of Object.entries(live.regions)) {
+    const target = DATA[regionId];
+    if (!target) continue;
+    for (const [rawId, hazard] of Object.entries(region.hazards ?? {})) {
+      const slot = target.hazards[HAZARD_ALIAS[rawId] ?? rawId];
+      if (!slot) continue;
+      if (hazard.vals) slot.vals = { ...slot.vals, ...hazard.vals };
+      if (hazard.drivers?.length) slot.drivers = hazard.drivers;
+    }
+  }
+
+  /* Every station must have a series for every hazard. A station present in
+     the map but missing from one hazard's vals would be read as undefined[step]
+     and take the whole panel down. */
+  for (const region of Object.values(DATA)) {
+    const stationIds = Object.keys(region.stations);
+    for (const hazard of Object.values(region.hazards)) {
+      for (const id of stationIds) {
+        if (!Array.isArray(hazard.vals[id])) {
+          hazard.vals[id] = STEPS.map(() => 0);
+        }
+      }
+    }
+  }
+}
+
+export const MODEL_META = {
+  live: Boolean(live?.regions),
+  source: live?.generated_from ?? null,
+  validAt: live?.valid_at ?? null,
+  validAtLabel: live?.valid_at_label ?? null,
+  heldOut: Boolean(live?.held_out),
 };
 
 export function regionPeak(regionId, hazardId, step) {

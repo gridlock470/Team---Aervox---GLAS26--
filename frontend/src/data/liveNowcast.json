@@ -1,0 +1,706 @@
+{
+  "generated_from": "LightGBM baseline, trained on 2018 ERA5 + IMERG + DEM",
+  "valid_at": "2018-09-08T09:00",
+  "valid_at_label": "09:00 IST",
+  "held_out": true,
+  "steps": [
+    "Now",
+    "+2h",
+    "+4h",
+    "+6h"
+  ],
+  "step_leads": [
+    1,
+    2,
+    4,
+    6
+  ],
+  "regions": {
+    "uk": {
+      "hazards": {
+        "thunderstorm": {
+          "vals": {
+            "dhauliganga": [
+              0,
+              100,
+              0,
+              0
+            ],
+            "kedarnath": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "rudraprayag": [
+              0,
+              1,
+              1,
+              1
+            ],
+            "dehradun": [
+              0,
+              0,
+              1,
+              1
+            ],
+            "haridwar": [
+              0,
+              0,
+              0,
+              1
+            ]
+          },
+          "drivers": [
+            {
+              "label": "2 m temperature",
+              "unit": "K",
+              "vals": [
+                "281.3",
+                "281.3",
+                "281.3",
+                "281.3"
+              ],
+              "w": [
+                1.0,
+                1.0,
+                1.0,
+                1.0
+              ]
+            },
+            {
+              "label": "Total column water vapour",
+              "unit": "kg/m2",
+              "vals": [
+                "8.7",
+                "8.7",
+                "8.7",
+                "8.7"
+              ],
+              "w": [
+                0.602,
+                0.602,
+                0.602,
+                0.602
+              ]
+            },
+            {
+              "label": "Convective inhibition",
+              "unit": "J/kg",
+              "vals": [
+                "139",
+                "139",
+                "139",
+                "139"
+              ],
+              "w": [
+                0.597,
+                0.597,
+                0.597,
+                0.597
+              ]
+            },
+            {
+              "label": "Vertical wind shear, 0-6 km",
+              "unit": "m/s",
+              "vals": [
+                "2.4",
+                "2.4",
+                "2.4",
+                "2.4"
+              ],
+              "w": [
+                0.588,
+                0.588,
+                0.588,
+                0.588
+              ]
+            },
+            {
+              "label": "CAPE (surface-based)",
+              "unit": "J/kg",
+              "vals": [
+                "8",
+                "8",
+                "8",
+                "8"
+              ],
+              "w": [
+                0.537,
+                0.537,
+                0.537,
+                0.537
+              ]
+            }
+          ]
+        },
+        "cloudburst": {
+          "vals": {
+            "dhauliganga": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "kedarnath": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "rudraprayag": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "dehradun": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "haridwar": [
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          "drivers": [
+            {
+              "label": "Total column water vapour",
+              "unit": "kg/m2",
+              "vals": [
+                "8.7",
+                "8.7",
+                "8.7",
+                "8.7"
+              ],
+              "w": [
+                1.0,
+                1.0,
+                1.0,
+                1.0
+              ]
+            },
+            {
+              "label": "Low-level convergence",
+              "unit": "x10-5 s-1",
+              "vals": [
+                "+0.00",
+                "+0.00",
+                "+0.00",
+                "+0.00"
+              ],
+              "w": [
+                0.378,
+                0.378,
+                0.378,
+                0.378
+              ]
+            },
+            {
+              "label": "Elevation",
+              "unit": "m",
+              "vals": [
+                "5065",
+                "5065",
+                "5065",
+                "5065"
+              ],
+              "w": [
+                0.246,
+                0.246,
+                0.246,
+                0.246
+              ]
+            },
+            {
+              "label": "Convective inhibition",
+              "unit": "J/kg",
+              "vals": [
+                "139",
+                "139",
+                "139",
+                "139"
+              ],
+              "w": [
+                0.098,
+                0.098,
+                0.098,
+                0.098
+              ]
+            },
+            {
+              "label": "Mean sea-level pressure",
+              "unit": "hPa",
+              "vals": [
+                "101621",
+                "101621",
+                "101621",
+                "101621"
+              ],
+              "w": [
+                0.094,
+                0.094,
+                0.094,
+                0.094
+              ]
+            }
+          ]
+        },
+        "flash_flood": {
+          "vals": {
+            "dhauliganga": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "kedarnath": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "rudraprayag": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "dehradun": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "haridwar": [
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          "drivers": [
+            {
+              "label": "Total column water vapour",
+              "unit": "kg/m2",
+              "vals": [
+                "51.8",
+                "51.8",
+                "51.8",
+                "51.8"
+              ],
+              "w": [
+                1.0,
+                1.0,
+                1.0,
+                1.0
+              ]
+            },
+            {
+              "label": "Convective inhibition",
+              "unit": "J/kg",
+              "vals": [
+                "81",
+                "81",
+                "81",
+                "81"
+              ],
+              "w": [
+                0.478,
+                0.478,
+                0.478,
+                0.478
+              ]
+            },
+            {
+              "label": "Vertical wind shear, 0-6 km",
+              "unit": "m/s",
+              "vals": [
+                "7.2",
+                "7.2",
+                "7.2",
+                "7.2"
+              ],
+              "w": [
+                0.304,
+                0.304,
+                0.304,
+                0.304
+              ]
+            },
+            {
+              "label": "Low-level convergence",
+              "unit": "x10-5 s-1",
+              "vals": [
+                "-0.00",
+                "-0.00",
+                "-0.00",
+                "-0.00"
+              ],
+              "w": [
+                0.218,
+                0.218,
+                0.218,
+                0.218
+              ]
+            },
+            {
+              "label": "Integrated water vapour",
+              "unit": "kg/m2",
+              "vals": [
+                "51.8",
+                "51.8",
+                "51.8",
+                "51.8"
+              ],
+              "w": [
+                0.143,
+                0.143,
+                0.143,
+                0.143
+              ]
+            }
+          ]
+        }
+      }
+    },
+    "ncr": {
+      "hazards": {
+        "thunderstorm": {
+          "vals": {
+            "gurugram": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "najafgarh": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "southdelhi": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "noida": [
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          "drivers": [
+            {
+              "label": "2 m temperature",
+              "unit": "K",
+              "vals": [
+                "302.4",
+                "302.4",
+                "302.4",
+                "302.4"
+              ],
+              "w": [
+                1.0,
+                1.0,
+                1.0,
+                1.0
+              ]
+            },
+            {
+              "label": "Total column water vapour",
+              "unit": "kg/m2",
+              "vals": [
+                "62.1",
+                "62.1",
+                "62.1",
+                "62.1"
+              ],
+              "w": [
+                0.602,
+                0.602,
+                0.602,
+                0.602
+              ]
+            },
+            {
+              "label": "Convective inhibition",
+              "unit": "J/kg",
+              "vals": [
+                "106",
+                "106",
+                "106",
+                "106"
+              ],
+              "w": [
+                0.597,
+                0.597,
+                0.597,
+                0.597
+              ]
+            },
+            {
+              "label": "Vertical wind shear, 0-6 km",
+              "unit": "m/s",
+              "vals": [
+                "7.6",
+                "7.6",
+                "7.6",
+                "7.6"
+              ],
+              "w": [
+                0.588,
+                0.588,
+                0.588,
+                0.588
+              ]
+            },
+            {
+              "label": "CAPE (surface-based)",
+              "unit": "J/kg",
+              "vals": [
+                "851",
+                "851",
+                "851",
+                "851"
+              ],
+              "w": [
+                0.537,
+                0.537,
+                0.537,
+                0.537
+              ]
+            }
+          ]
+        },
+        "cloudburst": {
+          "vals": {
+            "gurugram": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "najafgarh": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "southdelhi": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "noida": [
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          "drivers": [
+            {
+              "label": "Total column water vapour",
+              "unit": "kg/m2",
+              "vals": [
+                "61.8",
+                "61.8",
+                "61.8",
+                "61.8"
+              ],
+              "w": [
+                1.0,
+                1.0,
+                1.0,
+                1.0
+              ]
+            },
+            {
+              "label": "Low-level convergence",
+              "unit": "x10-5 s-1",
+              "vals": [
+                "-0.00",
+                "-0.00",
+                "-0.00",
+                "-0.00"
+              ],
+              "w": [
+                0.378,
+                0.378,
+                0.378,
+                0.378
+              ]
+            },
+            {
+              "label": "Elevation",
+              "unit": "m",
+              "vals": [
+                "217",
+                "217",
+                "217",
+                "217"
+              ],
+              "w": [
+                0.246,
+                0.246,
+                0.246,
+                0.246
+              ]
+            },
+            {
+              "label": "Convective inhibition",
+              "unit": "J/kg",
+              "vals": [
+                "74",
+                "74",
+                "74",
+                "74"
+              ],
+              "w": [
+                0.098,
+                0.098,
+                0.098,
+                0.098
+              ]
+            },
+            {
+              "label": "Mean sea-level pressure",
+              "unit": "hPa",
+              "vals": [
+                "100289",
+                "100289",
+                "100289",
+                "100289"
+              ],
+              "w": [
+                0.094,
+                0.094,
+                0.094,
+                0.094
+              ]
+            }
+          ]
+        },
+        "flash_flood": {
+          "vals": {
+            "gurugram": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "najafgarh": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "southdelhi": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "noida": [
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          "drivers": [
+            {
+              "label": "Total column water vapour",
+              "unit": "kg/m2",
+              "vals": [
+                "62.0",
+                "62.0",
+                "62.0",
+                "62.0"
+              ],
+              "w": [
+                1.0,
+                1.0,
+                1.0,
+                1.0
+              ]
+            },
+            {
+              "label": "Convective inhibition",
+              "unit": "J/kg",
+              "vals": [
+                "109",
+                "109",
+                "109",
+                "109"
+              ],
+              "w": [
+                0.478,
+                0.478,
+                0.478,
+                0.478
+              ]
+            },
+            {
+              "label": "Vertical wind shear, 0-6 km",
+              "unit": "m/s",
+              "vals": [
+                "7.3",
+                "7.3",
+                "7.3",
+                "7.3"
+              ],
+              "w": [
+                0.304,
+                0.304,
+                0.304,
+                0.304
+              ]
+            },
+            {
+              "label": "Low-level convergence",
+              "unit": "x10-5 s-1",
+              "vals": [
+                "+0.00",
+                "+0.00",
+                "+0.00",
+                "+0.00"
+              ],
+              "w": [
+                0.218,
+                0.218,
+                0.218,
+                0.218
+              ]
+            },
+            {
+              "label": "Integrated water vapour",
+              "unit": "kg/m2",
+              "vals": [
+                "62.0",
+                "62.0",
+                "62.0",
+                "62.0"
+              ],
+              "w": [
+                0.143,
+                0.143,
+                0.143,
+                0.143
+              ]
+            }
+          ]
+        }
+      }
+    }
+  }
+}
