@@ -1,0 +1,96 @@
+/* ---------- insight modal ----------
+   The map stays mounted and visible behind this -- it dims and centers a
+   card rather than covering the whole viewport, so the popup reads as a
+   layer over the map, not a page swap. */
+.insight-modal-backdrop{
+  position:fixed;
+  inset:0;
+  z-index:120;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:24px;
+  background:rgba(4,6,10,0.55);
+  backdrop-filter:blur(3px);
+  animation:insight-fade 140ms ease-out;
+}
+
+.insight-modal{
+  width:min(640px, 100%);
+  max-height:min(78vh, 720px);
+  display:flex;
+  flex-direction:column;
+  background:var(--panel);
+  border:1px solid var(--line-strong);
+  border-radius:var(--radius);
+  box-shadow:0 28px 70px rgba(0,0,0,0.5);
+  overflow:hidden;
+}
+
+.insight-modal-head{
+  flex:none;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:14px 16px;
+  border-bottom:1px solid var(--line);
+}
+.insight-modal-head h2{
+  font-size:13px;
+  font-weight:700;
+  letter-spacing:0.05em;
+  text-transform:uppercase;
+  color:var(--ink);
+  display:flex;
+  align-items:center;
+  gap:9px;
+}
+.insight-modal-head h2 i{ color:var(--accent-bright); }
+
+.insight-modal-close{
+  flex:none;
+  width:28px;
+  height:28px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  background:var(--panel-raised);
+  border:1px solid var(--line);
+  border-radius:var(--radius-sm);
+  color:var(--ink-dim);
+  cursor:pointer;
+}
+.insight-modal-close:hover{ color:var(--ink); border-color:var(--line-strong); }
+
+.insight-modal-body{
+  flex:1 1 auto;
+  min-height:0;
+  overflow-y:auto;
+  padding:16px;
+}
+
+/* Panels were authored for the old dock body, which already applied this
+   padding/border reset -- keep them frameless in here too. */
+.insight-modal-body .panel,
+.insight-modal-body .alerts-panel,
+.insight-modal-body .cap-panel{
+  background:transparent;
+  border:0;
+  border-radius:0;
+}
+.insight-modal-body .panel-head{ padding:0 0 10px; border-bottom:1px solid var(--line-soft); }
+.insight-modal-body .panel-body{ padding:12px 0 0; }
+
+@keyframes insight-fade{
+  from{ opacity:0; }
+  to{ opacity:1; }
+}
+@media (prefers-reduced-motion: reduce){
+  .insight-modal-backdrop{ animation:none; }
+}
+
+@media (max-width: 560px){
+  .insight-modal-backdrop{ padding:12px; }
+  .insight-modal{ max-height:88vh; }
+}

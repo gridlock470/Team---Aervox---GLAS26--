@@ -1,0 +1,92 @@
+/* ---------- top nav ----------
+   Replaces the old 300px left rail + bottom dock. One slim row: hazard
+   pills on the left, insight launcher buttons on the right. Nothing here
+   is a data readout -- that lives in the popup a button opens -- so this
+   bar stays a fixed, small height regardless of viewport. */
+.top-nav{
+  grid-area:topnav;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  flex-wrap:wrap;
+  padding:8px 12px;
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+}
+
+.top-nav-hazards,
+.top-nav-insights{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-wrap:wrap;
+}
+
+.hazard-pill{
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  background:var(--panel-raised);
+  border:1px solid var(--line);
+  border-radius:20px;
+  padding:6px 10px 6px 12px;
+  cursor:pointer;
+  font-size:12px;
+  font-weight:600;
+  color:var(--ink-dim);
+  transition:background 140ms ease-out, border-color 140ms ease-out, color 140ms ease-out;
+}
+.hazard-pill:hover{ background:var(--panel-hover); border-color:var(--line-strong); }
+.hazard-pill.active{
+  color:var(--ink);
+  border-color:var(--accent-bright);
+  background:var(--accent-wash);
+}
+.hazard-pill-badge{
+  font-size:10px;
+  font-weight:800;
+  color:#fff;
+  border-radius:10px;
+  padding:2px 7px;
+}
+
+.insight-btn{
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  background:var(--panel-raised);
+  border:1px solid var(--line);
+  border-radius:var(--radius-sm);
+  padding:7px 12px;
+  cursor:pointer;
+  font-size:12.5px;
+  font-weight:600;
+  color:var(--ink-dim);
+  transition:background 140ms ease-out, border-color 140ms ease-out, color 140ms ease-out;
+}
+.insight-btn:hover{ background:var(--panel-hover); color:var(--ink); border-color:var(--line-strong); }
+.insight-btn i{ color:var(--accent-bright); }
+.insight-btn-badge{
+  min-width:16px;
+  height:16px;
+  padding:0 4px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:8px;
+  background:var(--accent-wash);
+  color:var(--ink);
+  font-size:10.5px;
+  font-weight:800;
+}
+
+@media (prefers-reduced-motion: reduce){
+  .hazard-pill, .insight-btn{ transition:none; }
+}
+
+@media (max-width: 720px){
+  .top-nav{ justify-content:flex-start; }
+  .hazard-pill-name{ display:none; }
+}

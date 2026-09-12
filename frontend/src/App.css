@@ -40,22 +40,20 @@
 .shell{
   height:100vh;
   display:grid;
-  grid-template-columns:300px minmax(0,1fr);
-  grid-template-rows:auto minmax(0,1fr) minmax(220px,300px);
+  grid-template-columns:minmax(0,1fr);
+  grid-template-rows:auto auto minmax(0,1fr);
   grid-template-areas:
-    "header header"
-    "navrail stage"
-    "navrail dock";
-  gap:16px;
-  padding:16px;
+    "header"
+    "topnav"
+    "stage";
+  gap:12px;
+  padding:12px;
   background:var(--bg);
   overflow:hidden;
 }
 
 .shell > header{ grid-area:header; }
-.shell > .nav-rail{ grid-area:navrail; overflow-y:auto; }
 .shell > .stage{ grid-area:stage; }
-.shell > .dock{ grid-area:dock; }
 
 .panel-head h2{ display:flex; align-items:center; gap:9px; }
 .panel-head h2 i{ color:var(--accent-bright); }
@@ -148,30 +146,6 @@
 .stage-overlay .timeline-strip{ border-top:0; padding-top:0; }
 .stage-overlay .provenance{ display:none; }
 
-@media (max-width: 1100px){
-  .shell{
-    grid-template-columns:1fr;
-    grid-template-rows:auto 1fr minmax(0,340px);
-    grid-template-areas:
-      "header"
-      "stage"
-      "dock";
-    overflow-y:auto;
-  }
-  .shell > .nav-rail{ display:none; }
-}
-
-/* ---------- dock, as a bottom panel ----------
-   The pasted mock stacks the detail grid under the map rather than beside
-   it; Dock.css still ships side-rail defaults (fixed width, width-based
-   collapse), so those are overridden here at the layout seam instead of
-   rewriting the component for a bottom-only home. */
-.shell > .dock{
-  width:100%;
-  align-self:stretch;
-}
-.shell > .dock.is-collapsed{ width:100%; height:44px; }
-
 /* ---------- panels (shared) ---------- */
 .panel{
   background:var(--panel);
@@ -194,32 +168,3 @@
   color:var(--ink);
 }
 .panel-body{ padding:16px 18px; }
-
-/* ---------- dock panels ----------
-   The dock supplies the frame, so panels inside it must not draw their own.
-   The panel components arrived with two different conventions -- some use the
-   shared .panel class, some paint their own border -- and this reconciles both
-   at the seam rather than editing five components to agree. */
-.dock-body .panel,
-.dock-body .alerts-panel,
-.dock-body .cap-panel{
-  background:transparent;
-  border:0;
-  border-radius:0;
-}
-.dock-body .panel-head{
-  padding:0 0 10px;
-  border-bottom:1px solid var(--line-soft);
-}
-.dock-body .panel-body{ padding:12px 0 0; }
-
-/* Five tabs have to fit 340px without the strip scrolling and clipping the
-   first and last labels. Tighten the tabs rather than widen the dock -- the
-   map is the thing that deserves the pixels. */
-.dock:not(.is-collapsed) .dock-tab{
-  padding-left:7px;
-  padding-right:7px;
-  font-size:11.5px;
-  letter-spacing:-0.005em;
-  white-space:nowrap;
-}

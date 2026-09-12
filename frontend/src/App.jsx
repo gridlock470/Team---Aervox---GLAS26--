@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import './App.css'
 import Header from './components/Header.jsx'
-import NavRail from './components/NavRail.jsx'
+import TopNav from './components/TopNav.jsx'
 import MapPanel, { FULLSCREEN_TRANSITION_MS } from './components/MapPanel.jsx'
 import TimelineStrip from './components/TimelineStrip.jsx'
-import Dock from './components/Dock.jsx'
+import InsightModal from './components/InsightModal.jsx'
 import AlertsPanel from './components/panels/AlertsPanel.jsx'
 import PointsPanel from './components/panels/PointsPanel.jsx'
 import DriversPanel from './components/panels/DriversPanel.jsx'
@@ -69,8 +69,7 @@ export default function App() {
   const [region, setRegion] = useState('uk')
   const [hazard, setHazard] = useState('flashflood')
   const [step, setStep] = useState(0)
-  const [tab, setTab] = useState('alerts')
-  const [collapsed, setCollapsed] = useState(false)
+  const [activePanel, setActivePanel] = useState(null)
   const [mapFullscreen, setMapFullscreen] = useState(false)
   const [soundAlerts, setSoundAlerts] = useState(false)
   const stageRef = useRef(null)
@@ -134,7 +133,8 @@ export default function App() {
     { id: 'cap', label: 'CAP log', icon: 'fa-solid fa-file-shield' },
   ]
 
-  const Panel = PANELS[tab] ?? TelemetryPanel
+  const activeTab = tabs.find((t) => t.id === activePanel) ?? null
+  const Panel = activeTab ? PANELS[activeTab.id] ?? TelemetryPanel : null
 
   return (
     <div className="shell">
@@ -145,7 +145,14 @@ export default function App() {
         onToggleSoundAlerts={() => setSoundAlerts((v) => !v)}
         activeSeverity={activeSeverity}
       />
-      <NavRail region={region} hazard={hazard} step={step} onHazardChange={setHazard} />
+      <TopNav
+        region={region}
+        hazard={hazard}
+        step={step}
+        onHazardChange={setHazard}
+        tabs={tabs}
+        onOpenPanel={setActivePanel}
+      />
 
       <div className={`stage${mapFullscreen ? ' is-fullscreen' : ''}`} ref={stageRef}>
         <MapPanel
@@ -160,15 +167,14 @@ export default function App() {
         </div>
       </div>
 
-      <Dock
-        tabs={tabs}
-        active={tab}
-        onActiveChange={setTab}
-        collapsed={collapsed}
-        onCollapsedChange={setCollapsed}
+      <InsightModal
+        open={!!activeTab}
+        title={activeTab?.label}
+        icon={activeTab?.icon}
+        onClose={() => setActivePanel(null)}
       >
-        <Panel region={region} hazard={hazard} step={step} />
-      </Dock>
+        {Panel && <Panel region={region} hazard={hazard} step={step} />}
+      </InsightModal>
 
       {/* Fixed, full-viewport, pointer-events:none -- a second alarm channel
           alongside the siren rather than a themed severity indicator, so it
