@@ -6,7 +6,15 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
+from nowcast.common import io as _io
 from nowcast.ingest import names as _names
+
+# The only coordinates the datacube contract knows about. Sources ship extra
+# scalar/auxiliary coords (ERA5 carries ``expver`` as a <U4 string along time
+# and a scalar ``number``); they are not schema variables, they survive into the
+# Zarr store, and ``expver`` turns into object/NaN the moment a time reindex
+# touches it, so ``apply_var_map`` drops everything outside this set.
+_CANONICAL_COORDS: tuple[str, ...] = ("time", "lat", "lon", "level")
 
 __all__ = [
     "apply_var_map",
@@ -102,8 +110,9 @@ def apply_var_map(
 ) -> xr.Dataset:
     """Rename + unit-convert every mapped variable in ``ds``.
 
-    Returns a new dataset containing only the variables found in ``table``,
-    named and scaled to the schema contract. Accumulated variables are turned
+    Returns a new dataset containing only the variables found in ``table`` and
+    only the canonical coordinates (:data:`_CANONICAL_COORDS`), named and scaled
+    to the schema contract. Accumulated variables are turned
     into ``mm h-1`` rates using the per-variable convention declared on the
     :class:`~nowcast.ingest.names.VarMap` (``cumulative`` / ``accum_window_h``).
 
@@ -114,6 +123,10 @@ def apply_var_map(
         the table (use only when a specific file is known to differ from the
         documented product convention). ``None`` -> trust the ``VarMap``.
     """
+    extra_coords = [c for c in ds.coords if c not in _CANONICAL_COORDS]
+    if extra_coords:
+        ds = ds.drop_vars(extra_coords)
+
     out: dict[str, xr.DataArray] = {}
     for raw_name in list(ds.data_vars):
         vm = _names.lookup(table, raw_name)
@@ -130,7 +143,8 @@ def apply_var_map(
             # keep the first finite estimate, fill gaps from the later one
             da = xr.where(np.isfinite(out[vm.schema_name]), out[vm.schema_name], da)
         out[vm.schema_name] = da
-    return xr.Dataset(out, coords={k: ds.coords[k] for k in ds.coords})
+    coords = {k: ds.coords[k] for k in ds.coords if k in _CANONICAL_COORDS}
+    return xr.Dataset(out, coords=coords)
 
 
 def select_schema_vars(ds: xr.Dataset, wanted: tuple[str, ...]) -> xr.Dataset:
@@ -151,13 +165,25 @@ def resample_to_step(
     ``how="mean"`` bin-averages (correct for rates such as precip);
     ``how="nearest"`` snaps each target step to the closest source sample
     within ``tolerance`` (correct for state fields such as brightness
-    temperature). A non-datetime or single-step ``time`` axis is returned
-    unchanged.
+    temperature).
+
+    A ``cftime``-decoded axis is CONVERTED to ``datetime64[ns]`` first rather
+    than passed through: real GPM IMERG granules declare ``calendar = "julian"``
+    and decode to :class:`cftime.DatetimeJulian`, and returning them untouched
+    left a half-hourly field that every downstream consumer believed was hourly
+    -- which makes :func:`nowcast.features.labels.valid_label_times` find no
+    contiguous run at ``config.TIMESTEP`` spacing and silently yields zero
+    training samples. Only a genuinely non-temporal (e.g. integer) or
+    single-step axis is returned unchanged.
     """
     if "time" not in getattr(obj, "coords", {}) or obj["time"].size < 2:
         return obj
-    if not np.issubdtype(np.asarray(obj["time"].values).dtype, np.datetime64):
-        return obj
+    times = np.asarray(obj["time"].values)
+    if not np.issubdtype(times.dtype, np.datetime64):
+        if times.dtype == object and _io._is_cftime(times.ravel()[0]):
+            obj = obj.assign_coords(time=_io.cftime_to_datetime64(times))
+        else:
+            return obj
 
     if how == "mean":
         return obj.resample(time=step).mean()

@@ -84,10 +84,29 @@ IMDAA_SINGLE_LEVEL: dict[str, VarMap] = {
         cumulative=True,
         accum_window_h=1.0,
         notes="cumulative accumulation since cycle init (hourly, resets each cycle)",
-        aliases=("tp", "APCP_GDS0_SFC", "apcp"),
+        aliases=("APCP_GDS0_SFC", "apcp"),
     ),
     "CAPE_sfc": VarMap("cape", raw_units="J kg-1", aliases=("cape", "CAPE_GDS0_SFC")),
     "CIN_sfc": VarMap("cin", raw_units="J kg-1", aliases=("cin", "CIN_GDS0_SFC")),
+    # ERA5 stands in for IMDAA until the NCMRWF order lands: same variable
+    # roles, 0.25 deg instead of 0.12 deg. Its short names for t2m/u10/v10/msl/
+    # tcwv/cape/cin are already aliases above, but `tp` needs its OWN entry --
+    # it is NOT the IMDAA/MERA convention:
+    #   * stored in METRES, not kg m-2, so it needs scale=1000;
+    #   * hourly ERA5 reanalysis `tp` is the depth accumulated over the single
+    #     hour ENDING at the timestamp -- a per-step accumulation, not a running
+    #     total since cycle init, so ``cumulative=False``.
+    # Matching it to APCP_sfc (as the `tp` alias used to) under-scaled it 1000x
+    # and then differenced an already-differenced field.
+    "tp": VarMap(
+        "precip",
+        scale=1000.0,
+        raw_units="m",
+        accumulated=True,
+        cumulative=False,
+        accum_window_h=1.0,
+        notes="ERA5 total precipitation: m accumulated over the preceding hour",
+    ),
 }
 
 # ---------------------------------------------------------------------------
@@ -105,6 +124,15 @@ IMDAA_PRESSURE_LEVEL: dict[str, VarMap] = {
     ),
     "UGRD_prl": VarMap("u", raw_units="m s-1", aliases=("u", "eastward_wind")),
     "VGRD_prl": VarMap("v", raw_units="m s-1", aliases=("v", "northward_wind")),
+    # ERA5 (the IMDAA stand-in) already publishes GEOPOTENTIAL, not geopotential
+    # height, so it must NOT get HGT_prl's x9.80665. It needs its own key: with
+    # no entry at all `lookup` returned None and `z` -- a required
+    # ``schema.LEVEL_VARS`` variable -- was silently dropped from the datacube.
+    "z": VarMap(
+        "z",
+        raw_units="m2 s-2",
+        notes="ERA5 geopotential; already in schema units, no g factor",
+    ),
 }
 
 # ---------------------------------------------------------------------------

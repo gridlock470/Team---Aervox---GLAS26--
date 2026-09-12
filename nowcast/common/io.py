@@ -14,7 +14,13 @@ from pathlib import Path
 import numpy as np
 import xarray as xr
 
-__all__ = ["standardize_coords", "open_netcdf", "write_zarr", "open_zarr"]
+__all__ = [
+    "standardize_coords",
+    "cftime_to_datetime64",
+    "open_netcdf",
+    "write_zarr",
+    "open_zarr",
+]
 
 # Raw coordinate name -> canonical name.
 _COORD_ALIASES: dict[str, str] = {
@@ -48,6 +54,39 @@ _VAR_ALIASES: dict[str, str] = {
 }
 
 
+def _is_cftime(value) -> bool:
+    """True when ``value`` looks like a :mod:`cftime` datetime object."""
+    return all(
+        hasattr(value, attr)
+        for attr in ("year", "month", "day", "hour", "minute", "second")
+    ) and not isinstance(value, np.datetime64)
+
+
+def cftime_to_datetime64(values: np.ndarray) -> np.ndarray:
+    """Convert a ``cftime`` object axis to ``datetime64[ns]``, field for field.
+
+    Some products label their time axis with a calendar xarray does not treat
+    as standard even though the values are ordinary UTC -- GPM IMERG declares
+    ``calendar = "julian"`` on ``seconds since 1980-01-06``, so xarray decodes
+    it to :class:`cftime.DatetimeJulian` objects. Reading the calendar fields
+    verbatim (the same rule :meth:`xarray.CFTimeIndex.to_datetimeindex` uses)
+    recovers the intended timestamps, which matters because every downstream
+    ``np.datetime64`` guard (resampling, reindex tolerances, gap detection)
+    silently no-ops on an object-dtype axis.
+    """
+    flat = np.asarray(values).ravel()
+    stamps = [
+        np.datetime64(
+            f"{t.year:04d}-{t.month:02d}-{t.day:02d}T"
+            f"{t.hour:02d}:{t.minute:02d}:{t.second:02d}."
+            f"{getattr(t, 'microsecond', 0):06d}",
+            "ns",
+        )
+        for t in flat
+    ]
+    return np.asarray(stamps, dtype="datetime64[ns]").reshape(np.asarray(values).shape)
+
+
 def standardize_coords(ds: xr.Dataset) -> xr.Dataset:
     """Return ``ds`` with canonical coordinate names, ascending lat, wrapped lon.
 
@@ -57,6 +96,7 @@ def standardize_coords(ds: xr.Dataset) -> xr.Dataset:
     * ``lon`` is mapped into ``[-180, 180]`` and sorted ascending.
     * a vertical coordinate (``lev``/``plev``/``isobaricInhPa`` ...) becomes
       ``level``.
+    * a ``cftime``-decoded ``time`` axis becomes ``datetime64[ns]``.
     """
     rename: dict[str, str] = {}
     for name in list(ds.variables):
@@ -81,6 +121,13 @@ def standardize_coords(ds: xr.Dataset) -> xr.Dataset:
         ds = ds.sortby("lat")
     if "level" in ds.coords:
         ds = ds.assign_coords(level=ds["level"].astype("float64"))
+    if (
+        "time" in ds.coords
+        and ds["time"].dtype == object
+        and ds["time"].size
+        and _is_cftime(np.asarray(ds["time"].values).ravel()[0])
+    ):
+        ds = ds.assign_coords(time=cftime_to_datetime64(ds["time"].values))
 
     return ds
 
@@ -103,18 +150,46 @@ def open_netcdf(path: str | Path, **kwargs) -> xr.Dataset:
     raise OSError(f"could not open {path} with any NetCDF engine") from last_err
 
 
-def write_zarr(ds: xr.Dataset, path: str | Path, mode: str = "w") -> Path:
+# Hours per Zarr chunk along ``time``. Consumers read short contiguous windows
+# (``config.INPUT_SEQ_LEN`` is 12 hours) across the FULL spatial and level grid,
+# so time is the only axis worth splitting. Left to itself Zarr auto-chunks a
+# multi-month cube into quarters of the record and shards lat/lon as well, which
+# turns one 12-hour training window into dozens of chunk reads.
+DEFAULT_TIME_CHUNK: int = 96
+
+
+def write_zarr(
+    ds: xr.Dataset,
+    path: str | Path,
+    mode: str = "w",
+    *,
+    time_chunk: int | None = DEFAULT_TIME_CHUNK,
+) -> Path:
     """Write ``ds`` to a Zarr store at ``path`` and return the path.
 
-    Chunk encoding is dropped so re-writing an in-memory dataset never trips
-    Zarr's "conflicting chunk" error.
+    Incoming chunk encoding is dropped so re-writing an in-memory dataset never
+    trips Zarr's "conflicting chunk" error. ``time_chunk`` then re-imposes a
+    read-friendly layout: every in-memory variable with a ``time`` dimension is
+    chunked ``time_chunk`` steps deep and left whole on every other axis. Pass
+    ``None`` to keep Zarr's own guess. Dask-backed variables are left alone --
+    their existing graph chunks drive the write, and overriding them is what
+    raises the conflicting-chunk error.
     """
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     to_write = ds.copy()
-    for var in to_write.variables:
-        to_write[var].encoding.pop("chunks", None)
-        to_write[var].encoding.pop("preferred_chunks", None)
+    for name in to_write.variables:
+        var = to_write[name]
+        var.encoding.pop("chunks", None)
+        var.encoding.pop("preferred_chunks", None)
+        if time_chunk is None or "time" not in var.dims:
+            continue
+        if not isinstance(var.data, np.ndarray):
+            continue  # dask-backed: let its own chunks win
+        var.encoding["chunks"] = tuple(
+            min(int(time_chunk), var.sizes[d]) if d == "time" else var.sizes[d]
+            for d in var.dims
+        )
     to_write.to_zarr(path, mode=mode, consolidated=True)
     return path
 

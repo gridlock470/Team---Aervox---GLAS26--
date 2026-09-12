@@ -56,6 +56,20 @@ def crop_bbox(obj: xr.DataArray | xr.Dataset, *, pad: float = 0.5) -> xr.DataArr
     return out.sel(lat=lat_slice, lon=lon_slice)
 
 
+def _restore_float_dtypes(
+    src: xr.DataArray | xr.Dataset, out: xr.DataArray | xr.Dataset
+) -> xr.DataArray | xr.Dataset:
+    """Cast ``out``'s floating variables back to their dtype in ``src``."""
+    if isinstance(out, xr.Dataset):
+        for name, var in src.data_vars.items():
+            if name in out.data_vars and np.issubdtype(var.dtype, np.floating):
+                out[name] = out[name].astype(var.dtype, copy=False)
+        return out
+    if np.issubdtype(src.dtype, np.floating):
+        return out.astype(src.dtype, copy=False)
+    return out
+
+
 def regrid_to_target(
     obj: xr.DataArray | xr.Dataset, method: str = "linear"
 ) -> xr.DataArray | xr.Dataset:
@@ -75,6 +89,10 @@ def regrid_to_target(
     Same type as ``obj`` with ``lat`` / ``lon`` replaced by the target grid.
     The output coordinates are set exactly to ``config.GRID_LAT`` /
     ``config.GRID_LON`` so downstream ``schema.validate_datacube`` passes.
+    Floating-point variables keep their input dtype: ``interp`` always returns
+    float64, which would both break the float32 dtype every
+    :class:`nowcast.schema.VarSpec` declares and double the memory a multi-month
+    pressure-level block needs.
     """
     if "lat" not in obj.coords or "lon" not in obj.coords:
         raise KeyError("regrid_to_target requires 'lat' and 'lon' coordinates")
@@ -90,6 +108,7 @@ def regrid_to_target(
     if method == "nearest":
         interp_kwargs = {"bounds_error": False}
     out = src.interp(lat=_LAT, lon=_LON, method=method, kwargs=interp_kwargs)
+    out = _restore_float_dtypes(src, out)
     out = out.assign_coords(lat=_LAT.copy(), lon=_LON.copy())
     out["lat"].attrs.update(units="degrees_north", standard_name="latitude")
     out["lon"].attrs.update(units="degrees_east", standard_name="longitude")

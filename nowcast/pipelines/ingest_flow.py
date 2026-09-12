@@ -80,12 +80,14 @@ def _stage_precip(surface, mera_paths, imerg_paths, insat_qpe_paths) -> xr.Datas
         return surface
     merged = merge_precip.merge_precip(mera=mera_ds, imerg=imerg_ds, insat_qpe=qpe_ds)
     if np.issubdtype(np.asarray(merged["time"].values).dtype, np.datetime64):
-        # snap to the IMDAA clock, but never carry a value across a gap larger
-        # than one datacube step (cells outside tolerance become NaN).
+        # Snap to the IMDAA clock, but never carry a value across a gap (cells
+        # outside tolerance become NaN). The radius is HALF a step: a tolerance
+        # of a whole step lets a sample slide a full timestep and land on a
+        # neighbouring hour, which is the very carry-across this guards against.
         merged = merged.reindex(
             time=surface["time"],
             method="nearest",
-            tolerance=pd.Timedelta(config.TIMESTEP),
+            tolerance=pd.Timedelta(config.TIMESTEP) / 2,
         )
     else:
         merged = merged.reindex(time=surface["time"], method="nearest")
@@ -120,6 +122,66 @@ else:
     _task_build = _stage_build
 
 
+def _trim_time(ds: xr.Dataset, time_range, *, pad: str | None = None) -> xr.Dataset:
+    """Restrict ``ds`` to the inclusive ``(start, end)`` ISO window.
+
+    ``pad`` widens the slice on both sides. A coarser-cadence source needs it:
+    the pressure levels are 3-hourly, so trimming them to exactly the window
+    leaves the final hours of the cube with no later sample to interpolate
+    towards and they come out NaN.
+    """
+    if not time_range or "time" not in ds.coords:
+        return ds
+    if not np.issubdtype(np.asarray(ds["time"].values).dtype, np.datetime64):
+        return ds
+    start, end = time_range
+    if pad:
+        margin = pd.Timedelta(pad)
+        trimmed = ds.sel(
+            time=slice(pd.Timestamp(start) - margin, pd.Timestamp(end) + margin)
+        )
+    else:
+        trimmed = ds.sel(time=slice(start, end))
+    if trimmed.sizes.get("time", 0) == 0:
+        raise ValueError(
+            f"time_range {time_range} selects no steps from a source spanning "
+            f"{ds['time'].values[0]} .. {ds['time'].values[-1]}"
+        )
+    return trimmed
+
+
+def _clip_to_span(ds: xr.Dataset, other: xr.Dataset) -> xr.Dataset:
+    """Clip ``ds``'s time axis to the span ``other`` actually covers.
+
+    The surface source defines the datacube clock, but the pressure levels are a
+    REQUIRED part of the contract (``schema.LEVEL_VARS``) and their archive can
+    stop earlier -- ERA5's 3-hourly levels end at 21:00 on a day whose hourly
+    single levels run to 23:00. Those trailing hours cannot be interpolated
+    towards anything, so they would enter the cube as all-NaN level fields and
+    ``schema.validate_sample`` rejects any input tensor containing NaN. Ending
+    the clock at the last fully-populated step is honest; carrying NaN forward
+    is not.
+    """
+    for obj in (ds, other):
+        if "time" not in obj.coords or obj.sizes.get("time", 0) == 0:
+            return ds
+        if not np.issubdtype(np.asarray(obj["time"].values).dtype, np.datetime64):
+            return ds
+    lo = np.asarray(other["time"].values).min()
+    hi = np.asarray(other["time"].values).max()
+    clipped = ds.sel(time=slice(lo, hi))
+    dropped = ds.sizes["time"] - clipped.sizes.get("time", 0)
+    if dropped:
+        _LOG.info(
+            "clipped %d surface step(s) not covered by the pressure-level source "
+            "(clock now %s .. %s)",
+            dropped,
+            clipped["time"].values[0],
+            clipped["time"].values[-1],
+        )
+    return clipped
+
+
 def _pipeline(
     *,
     imdaa_single,
@@ -132,6 +194,7 @@ def _pipeline(
     wget_dirs,
     out_path,
     stages,
+    time_range=None,
 ) -> str:
     """Shared body for :func:`run_ingest` and :func:`ingest_datacube`."""
     wget, load_imdaa, load_precip, load_sat, build = stages
@@ -139,6 +202,10 @@ def _pipeline(
         for line in wget(wget_dirs):
             _LOG.info("wget: %s", line)
     surface, level = load_imdaa(imdaa_single, imdaa_level)
+    surface = _trim_time(surface, time_range)
+    # The surface clock defines the cube; the levels only need to bracket it.
+    level = _trim_time(level, time_range, pad="1D")
+    surface = _clip_to_span(surface, level)
     surface = load_precip(surface, mera_paths, imerg_paths, insat_qpe_paths)
     satellite = load_sat(insat_l1c_paths)
     return build(surface, level, satellite, static, out_path)
@@ -155,8 +222,19 @@ def run_ingest(
     static=None,
     wget_dirs=(),
     out_path: str | Path = config.DATACUBE_PATH,
+    time_range: tuple[str, str] | None = None,
 ) -> str:
     """Plain-Python driver for the ingest pipeline (no Prefect required).
+
+    Parameters
+    ----------
+    time_range:
+        Optional inclusive ``(start, end)`` ISO window. The datacube clock comes
+        from the single-level source, which routinely covers more than the
+        precip source does; since :func:`nowcast.ingest.merge_precip.merge_precip`
+        fills unmatched cells with ``0.0``, building past the precip record
+        would write fabricated "no rain" into the only label source. Trim to the
+        window every source actually covers.
 
     Returns the path of the written datacube Zarr store.
     """
@@ -170,6 +248,7 @@ def run_ingest(
         static=static,
         wget_dirs=wget_dirs,
         out_path=out_path,
+        time_range=time_range,
         stages=(_stage_wget, _stage_imdaa, _stage_precip, _stage_satellite, _stage_build),
     )
 
@@ -185,6 +264,7 @@ def _ingest_datacube_impl(
     static=None,
     wget_dirs=(),
     out_path: str | Path = config.DATACUBE_PATH,
+    time_range: tuple[str, str] | None = None,
 ) -> str:
     """Flow body: same pipeline, wired through Prefect tasks."""
     if not PREFECT_AVAILABLE:  # pragma: no cover - exercised only without Prefect
@@ -202,6 +282,7 @@ def _ingest_datacube_impl(
         static=static,
         wget_dirs=wget_dirs,
         out_path=out_path,
+        time_range=time_range,
         stages=(_task_wget, _task_imdaa, _task_precip, _task_satellite, _task_build),
     )
 

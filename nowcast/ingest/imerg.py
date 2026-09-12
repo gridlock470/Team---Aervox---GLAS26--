@@ -15,6 +15,8 @@ import datetime as _dt
 from collections.abc import Iterable
 from pathlib import Path
 
+import numpy as np
+import pandas as pd
 import xarray as xr
 
 from nowcast import config
@@ -26,6 +28,29 @@ from nowcast.ingest._util import apply_var_map, resample_to_step, select_schema_
 __all__ = ["fetch_imerg", "load_imerg", "ImergAuthError"]
 
 _IMERG_SHORT_NAME = "GPM_3IMERGHH"  # half-hourly
+
+
+def _label_bin_end(obj: xr.Dataset) -> xr.Dataset:
+    """Move an hourly bin's label from the bin's start to its end.
+
+    ``GPM_3IMERGHH`` timestamps each half-hourly window by its START, and
+    :func:`nowcast.ingest._util.resample_to_step` bins left-closed/left-labelled,
+    so a freshly resampled ``precip(T)`` is the mean rate over ``[T, T+1h)``.
+    The datacube convention is the opposite and everything downstream depends on
+    it: ``names.IMDAA_SINGLE_LEVEL['tp']`` and ``['APCP_sfc']`` accumulate over
+    the hour ENDING at the timestamp, and
+    :func:`nowcast.features.labels._cloudburst_mask` sums
+    ``precip.rolling(time=2)``, which is xarray's backward-looking window.
+    Shifting the label one step right puts the only label source in the project
+    in phase with them.
+    """
+    if "time" not in obj.coords or obj["time"].size == 0:
+        return obj
+    if not np.issubdtype(np.asarray(obj["time"].values).dtype, np.datetime64):
+        return obj
+    shifted = obj.assign_coords(time=obj["time"] + pd.Timedelta(config.TIMESTEP))
+    shifted["time"].attrs["bin_label"] = "end of the accumulation window"
+    return shifted
 
 
 class ImergAuthError(RuntimeError):
@@ -101,8 +126,9 @@ def load_imerg(
         pass ``None`` for flat files such as the synthetic test fixtures.
     resample:
         Bin-average the native half-hourly (``GPM_3IMERGHH``) rate onto the
-        datacube step ``config.TIMESTEP`` before returning. Skipped when the
-        time axis is non-datetime or single-step.
+        datacube step ``config.TIMESTEP`` before returning, and label each bin
+        by the END of its window (see :func:`_label_bin_end`). Skipped when the
+        time axis is non-temporal or single-step.
     """
     if isinstance(paths, (str, Path)):
         paths = [paths]
@@ -112,7 +138,10 @@ def load_imerg(
             datasets.append(_io.open_netcdf(p, group=group) if group else _io.open_netcdf(p))
         except (OSError, ValueError):
             datasets.append(_io.open_netcdf(p))
-    raw = datasets[0] if len(datasets) == 1 else xr.concat(datasets, dim="time")
+    if len(datasets) == 1:
+        raw = datasets[0]
+    else:
+        raw = xr.concat(datasets, dim="time").sortby("time")
 
     mapped = apply_var_map(raw, _names.IMERG_VARS)
     mapped = select_schema_vars(mapped, ("precip",))
@@ -120,6 +149,7 @@ def load_imerg(
         raise ValueError("no IMERG precipitation variable recognised in the input files")
     if resample:
         mapped = resample_to_step(mapped, config.TIMESTEP, how="mean")
+        mapped = _label_bin_end(mapped)
     mapped = _grid.crop_bbox(mapped)
     mapped = _grid.regrid_to_target(mapped, method="linear")
     mapped["precip"] = mapped["precip"].clip(min=0.0)

@@ -18,6 +18,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Sequence
 from pathlib import Path
 
+import numpy as np
 import xarray as xr
 
 from nowcast import config
@@ -47,13 +48,43 @@ def _as_paths(paths: str | Path | Iterable[str | Path]) -> list[Path]:
     return [Path(p) for p in paths]
 
 
+def _is_time_series_split(datasets: Sequence[xr.Dataset]) -> bool:
+    """True when every dataset holds the same variables on its own time slice.
+
+    That is the one-file-per-month layout the real archives ship. It must be
+    CONCATENATED, never merged: ``xr.merge(..., compat="override")`` aligns the
+    inputs on the union time axis and then keeps the *first* dataset's copy of
+    each duplicated variable, so every month after the first silently becomes
+    NaN.
+    """
+    if len(datasets) < 2:
+        return False
+    if not all("time" in ds.dims for ds in datasets):
+        return False
+    first = set(datasets[0].data_vars)
+    return bool(first) and all(set(ds.data_vars) == first for ds in datasets)
+
+
 def _open_many(paths: Sequence[Path]) -> xr.Dataset:
-    """Open and merge one or more IMDAA NetCDF files onto a common layout."""
+    """Open and combine one or more IMDAA NetCDF files onto a common layout."""
     if not paths:
         raise ValueError("no IMDAA paths supplied")
     datasets = [_io.open_netcdf(p) for p in paths]
     if len(datasets) == 1:
         return datasets[0]
+    if _is_time_series_split(datasets):
+        combined = xr.concat(
+            datasets,
+            dim="time",
+            data_vars="minimal",
+            coords="minimal",
+            compat="override",
+        )
+        combined = combined.sortby("time")
+        _, keep = np.unique(combined["time"].values, return_index=True)
+        if keep.size != combined.sizes["time"]:
+            combined = combined.isel(time=np.sort(keep))
+        return combined
     try:
         return xr.merge(datasets, compat="override", join="outer")
     except (ValueError, xr.MergeError):

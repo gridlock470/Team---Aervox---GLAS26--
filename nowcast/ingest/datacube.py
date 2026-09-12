@@ -26,22 +26,63 @@ def _align_time(
     ref_time: xr.DataArray | None,
     *,
     tolerance: str | None = None,
+    method: str | None = None,
 ) -> xr.Dataset:
     """Reindex ``ds`` onto ``ref_time`` (the surface/IMDAA clock).
 
     ``tolerance`` (a pandas offset string) bounds a nearest-match reindex so a
     stale sample is never carried across a gap; without it an exact reindex is
-    used. A missing / non-datetime time axis passes through untouched.
+    used. ``method="interp"`` linearly interpolates along time instead, which is
+    what a coarser-cadence source needs (see :func:`_interp_time`). A missing /
+    non-datetime time axis passes through untouched.
     """
     if ref_time is None or "time" not in ds.coords:
         return ds
     if not np.issubdtype(np.asarray(ds["time"].values).dtype, np.datetime64):
         return ds
+    if method == "interp":
+        return _interp_time(ds, ref_time)
     if tolerance is None:
         return ds.reindex(time=ref_time)
     return ds.reindex(
         time=ref_time, method="nearest", tolerance=pd.Timedelta(tolerance)
     )
+
+
+def _interp_time(ds: xr.Dataset, ref_time: xr.DataArray) -> xr.Dataset:
+    """Linearly interpolate ``ds`` onto ``ref_time``, one variable at a time.
+
+    Real ERA5/IMDAA pressure-level archives are 3-hourly while the single-level
+    fields are hourly, so an exact reindex leaves every level variable NaN at
+    two hours in three -- and ``schema.validate_sample`` rejects any input
+    tensor containing NaN, so the cube would be untrainable. Interpolating in
+    time is the standard treatment for the smooth, slowly-varying pressure-level
+    state fields; steps outside the source's own range stay NaN rather than
+    being extrapolated.
+
+    Variables are interpolated and cast back to their input dtype one at a time
+    because ``interp`` materialises float64: doing the whole block at once needs
+    roughly twice the peak memory of the finished cube.
+    """
+    if ds["time"].equals(ref_time):
+        return ds
+    timed = [n for n, v in ds.data_vars.items() if "time" in v.dims]
+    rebuilt: dict[str, xr.DataArray] = {
+        n: v for n, v in ds.data_vars.items() if "time" not in v.dims
+    }
+    for name in timed:
+        var = ds[name]
+        interpolated = var.interp(time=ref_time, method="linear")
+        if np.issubdtype(var.dtype, np.floating):
+            interpolated = interpolated.astype(var.dtype, copy=False)
+        rebuilt[name] = interpolated
+        # release the coarse-cadence source as we go; holding all of them plus
+        # all of the hourly output at once is what blows the memory budget.
+        ds = ds.drop_vars(name)
+    out = xr.Dataset(rebuilt)
+    out.attrs = dict(ds.attrs)
+    out.attrs["time_alignment"] = "linear interpolation onto the surface clock"
+    return out
 
 
 def _ensure_grid_coords(ds: xr.Dataset) -> xr.Dataset:
@@ -62,6 +103,7 @@ def build_datacube(
     static: xr.Dataset | xr.DataArray | None = None,
     *,
     validate: bool = True,
+    level_time_method: str | None = "interp",
 ) -> xr.Dataset:
     """Merge source datasets into one schema-conforming datacube.
 
@@ -80,6 +122,13 @@ def build_datacube(
         DataArray is treated as ``elevation``.
     validate:
         Run :func:`nowcast.schema.validate_datacube` before returning.
+    level_time_method:
+        How to put ``level`` on the surface clock. ``"interp"`` (default)
+        linearly interpolates along time, which is what real archives need --
+        ERA5/IMDAA pressure levels are 3-hourly while the single-level fields
+        are hourly, and an exact reindex would leave every level variable NaN at
+        two hours in three. ``None`` restores the exact reindex. Either way this
+        is a no-op when the two clocks already match.
 
     Returns
     -------
@@ -88,7 +137,10 @@ def build_datacube(
         ``schema.LEVEL_DIMS`` / ``schema.STATIC_DIMS``.
     """
     ref_time = surface["time"] if "time" in surface.coords else None
-    parts: list[xr.Dataset] = [surface, _align_time(level, ref_time)]
+    parts: list[xr.Dataset] = [
+        surface,
+        _align_time(level, ref_time, method=level_time_method),
+    ]
     if satellite is not None:
         parts.append(_align_time(satellite, ref_time, tolerance=config.TIMESTEP))
     if static is not None:
