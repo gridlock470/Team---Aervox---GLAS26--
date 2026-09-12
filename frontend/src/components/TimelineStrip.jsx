@@ -22,7 +22,7 @@ export default function TimelineStrip({ step, onStepChange }) {
           ))}
         </div>
         <div className="timeline-readout">
-          Forecast issued <span className="mono">{timeAt(0)}</span>, lead time <span className="mono">{STEPS[step].toLowerCase()}</span>
+          Forecast issued <span className="mono">{timeAt(0)}</span>, lead time <span className="mono">{STEPS[step].toLowerCase()}</span> &mdash; valid at <span className="mono">{timeAt(step)}</span>
         </div>
       </div>
       <p className="provenance">Model inputs: IMDAA reanalysis (NCMRWF), INSAT-3D/3DR water vapour, thermal-IR and rainfall retrievals (MOSDAC), and CartoDEM/SRTM elevation. Figures shown are illustrative for this prototype walkthrough.</p>

@@ -15,6 +15,42 @@
 }
 .mp-context .mono{ color:var(--ink); }
 
+/* Lifecycle: the two facts an operator checks first -- is this model
+   current, and did it actually run recently. Cards, not rows, so they read
+   at a glance before the detail sections below. */
+.mp-lifecycle{
+  display:flex;
+  gap:10px;
+  margin-top:12px;
+}
+.mp-stat{
+  flex:1 1 0;
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+  padding:10px 12px;
+  background:var(--panel-raised);
+  border:1px solid var(--line);
+  border-radius:var(--radius-sm);
+}
+.mp-stat-label{
+  font-size:10.5px;
+  font-weight:700;
+  letter-spacing:0.05em;
+  text-transform:uppercase;
+  color:var(--ink-faint);
+}
+.mp-stat-relative{
+  font-size:14px;
+  font-weight:700;
+  color:var(--ink);
+}
+.mp-stat-abs{
+  font-size:11px;
+  color:var(--ink-dim);
+}
+
 .mp-section{
   padding-top:12px;
   margin-top:12px;

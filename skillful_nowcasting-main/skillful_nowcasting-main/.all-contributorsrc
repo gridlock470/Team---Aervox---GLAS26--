@@ -1,0 +1,134 @@
+{
+  "files": [
+    "README.md"
+  ],
+  "imageSize": 100,
+  "commit": false,
+  "contributors": [
+    {
+      "login": "jacobbieker",
+      "name": "Jacob Bieker",
+      "avatar_url": "https://avatars.githubusercontent.com/u/7170359?v=4",
+      "profile": "https://www.jacobbieker.com",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "johmathe",
+      "name": "Johan Mathe",
+      "avatar_url": "https://avatars.githubusercontent.com/u/467643?v=4",
+      "profile": "http://johmathe.name/",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "ZHANGZ1YUE",
+      "name": "Z1YUE",
+      "avatar_url": "https://avatars.githubusercontent.com/u/93907996?v=4",
+      "profile": "https://github.com/ZHANGZ1YUE",
+      "contributions": [
+        "bug"
+      ]
+    },
+    {
+      "login": "GreenLimeSia",
+      "name": "Nan.Y",
+      "avatar_url": "https://avatars.githubusercontent.com/u/28706611?v=4",
+      "profile": "https://github.com/GreenLimeSia",
+      "contributions": [
+        "question"
+      ]
+    },
+    {
+      "login": "hedaobaishui",
+      "name": "Taisanai",
+      "avatar_url": "https://avatars.githubusercontent.com/u/20534146?v=4",
+      "profile": "https://github.com/hedaobaishui",
+      "contributions": [
+        "question"
+      ]
+    },
+    {
+      "login": "primeoc",
+      "name": "cameron",
+      "avatar_url": "https://avatars.githubusercontent.com/u/75205487?v=4",
+      "profile": "https://github.com/primeoc",
+      "contributions": [
+        "question"
+      ]
+    },
+    {
+      "login": "zhrli",
+      "name": "zhrli",
+      "avatar_url": "https://avatars.githubusercontent.com/u/11074703?v=4",
+      "profile": "https://github.com/zhrli",
+      "contributions": [
+        "question"
+      ]
+    },
+    {
+      "login": "najeeb-kazmi",
+      "name": "Najeeb Kazmi",
+      "avatar_url": "https://avatars.githubusercontent.com/u/14131235?v=4",
+      "profile": "https://github.com/najeeb-kazmi",
+      "contributions": [
+        "question"
+      ]
+    },
+    {
+      "login": "TQRTQ",
+      "name": "TQRTQ",
+      "avatar_url": "https://avatars.githubusercontent.com/u/29155385?v=4",
+      "profile": "https://github.com/TQRTQ",
+      "contributions": [
+        "question"
+      ]
+    },
+    {
+      "login": "victor30608",
+      "name": "Viktor Bordiuzha",
+      "avatar_url": "https://avatars.githubusercontent.com/u/43813476?v=4",
+      "profile": "https://www.linkedin.com/in/viktor-bordiuzha-93b078211",
+      "contributions": [
+        "example"
+      ]
+    },
+    {
+      "login": "agijsberts",
+      "name": "agijsberts",
+      "avatar_url": "https://avatars.githubusercontent.com/u/1579083?v=4",
+      "profile": "https://github.com/agijsberts",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "Mews",
+      "name": "Mews",
+      "avatar_url": "https://avatars.githubusercontent.com/u/60406199?v=4",
+      "profile": "https://github.com/Mews",
+      "contributions": [
+        "test"
+      ]
+    },
+    {
+      "login": "rutkovskii",
+      "name": "Aleksei Rutkovskii",
+      "avatar_url": "https://avatars.githubusercontent.com/u/70371908?v=4",
+      "profile": "https://github.com/rutkovskii",
+      "contributions": [
+        "code"
+      ]
+    }
+  ],
+  "contributorsPerLine": 7,
+  "projectName": "skillful_nowcasting",
+  "projectOwner": "openclimatefix",
+  "repoType": "github",
+  "repoHost": "https://github.com",
+  "skipCi": true,
+  "commitConvention": "angular",
+  "commitType": "docs"
+}

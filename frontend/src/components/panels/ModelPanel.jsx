@@ -28,12 +28,20 @@ export const MODEL_STATUS = {
     version: '0.4.2-rc1',
     family: 'ConvLSTM + gradient-boosted post-processing',
     trainedThrough: '2026-06-30',
+    // ISO timestamp backing the "Last trained" relative-time chip; the date
+    // above stays the human-authored label so the two can never drift apart.
+    trainedAt: '2026-06-30T00:00:00+05:30',
   },
   run: {
     inferenceAt: '07:42 IST',
     cycle: '2026-09-10 06:00 UTC',
     gridKm: 4,
     runtimeSec: 4.2,
+    // Same idea as trainedAt: the canonical timestamp for "when did this
+    // model last actually run inference", independent of the two display
+    // strings (inferenceAt, cycle) already used elsewhere in this panel.
+    lastUsedAt: '2026-09-10T07:42:00+05:30',
+    lastUsedDisplay: '10 Sep 2026, 07:42 IST',
   },
   sources: [
     { name: 'INSAT-3D/3DR rapid scan', provider: 'ISRO MOSDAC', latest: '07:36 IST', ageMin: 6,   cadenceMin: 15 },
@@ -61,6 +69,21 @@ function formatAge(minutes) {
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
   return m === 0 ? `${h} h` : `${h} h ${m} min`;
+}
+
+// Human "X ago" phrasing for the lifecycle stat cards, computed against the
+// viewer's real clock -- this is display polish over static demo timestamps,
+// not a claim that the underlying MODEL_STATUS values are live.
+function relativeFrom(iso) {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  if (diffMs < 60000) return 'just now';
+  const min = Math.round(diffMs / 60000);
+  if (min < 60) return `${min} min ago`;
+  const hrs = Math.round(min / 60);
+  if (hrs < 48) return `${hrs} h ago`;
+  const days = Math.round(hrs / 24);
+  if (days < 60) return `${days} d ago`;
+  return `${Math.round(days / 30)} mo ago`;
 }
 
 function freshnessOf(source) {
@@ -110,10 +133,22 @@ export default function ModelPanel({ region, hazard, step }) {
           <span className="mono">{status.run.inferenceAt}</span>.
         </p>
 
+        <div className="mp-lifecycle">
+          <div className="mp-stat">
+            <span className="mp-stat-label">Last trained</span>
+            <span className="mp-stat-relative">{relativeFrom(status.model.trainedAt)}</span>
+            <span className="mp-stat-abs mono">{status.model.trainedThrough}</span>
+          </div>
+          <div className="mp-stat">
+            <span className="mp-stat-label">Last used</span>
+            <span className="mp-stat-relative">{relativeFrom(status.run.lastUsedAt)}</span>
+            <span className="mp-stat-abs mono">{status.run.lastUsedDisplay}</span>
+          </div>
+        </div>
+
         <div className="mp-section">
           <h3 className="mp-section-title">This run</h3>
           <Row term="Architecture">{status.model.family}</Row>
-          <Row term="Trained through"><span className="mono">{status.model.trainedThrough}</span></Row>
           <Row term="Driving cycle"><span className="mono">{status.run.cycle}</span></Row>
           <Row term="Grid spacing"><span className="mono">{status.run.gridKm}</span> km</Row>
           <Row term="Inference time"><span className="mono">{status.run.runtimeSec.toFixed(1)}</span> s</Row>
