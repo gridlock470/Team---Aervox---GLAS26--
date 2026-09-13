@@ -48,7 +48,7 @@ function timing(windowText, frameText) {
   return { kind: 'closed', at: clock(end) };
 }
 
-export default function AlertsPanel({ region, hazard, step }) {
+export default function AlertsPanel({ region, hazard, step, injectionAlerts = [] }) {
   const [openIds, setOpenIds] = useState([]);
 
   const regionData = DATA[region];
@@ -59,8 +59,10 @@ export default function AlertsPanel({ region, hazard, step }) {
   const stepLabel = STEPS[step] || STEPS[0];
   const stepPhrase = stepLabel === 'Now' ? 'now' : `at ${stepLabel}`;
 
-  /* Most severe first, then most recently sent. Copy before sorting. */
-  const alerts = [...(regionData.alerts || [])].sort(
+  /* Most severe first, then most recently sent. Synthetic-injection alerts
+     (from the Synthetic Data demo toggle) are already in this exact shape,
+     so they sort and render through the same path as the baseline ones. */
+  const alerts = [...(regionData.alerts || []), ...injectionAlerts].sort(
     (a, b) =>
       SEV_ORDER.indexOf(b.sev) - SEV_ORDER.indexOf(a.sev) ||
       String(b.sent).localeCompare(String(a.sent))

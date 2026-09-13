@@ -1,5 +1,5 @@
 import { DATA, HAZARDS, STEPS, timeAt, regionPeak } from '../../data/nowcastData';
-import { SEV, sevFor, radiusMeters } from '../../lib/severity';
+import { SEV, sevFor, radiusMeters, PCT_FOR_SEV } from '../../lib/severity';
 import { MODEL_STATUS } from './ModelPanel.jsx';
 import './TelemetryPanel.css';
 
@@ -17,7 +17,7 @@ function confidenceWord(reliability) {
   return 'Limited';
 }
 
-export default function TelemetryPanel({ region, hazard, step }) {
+export default function TelemetryPanel({ region, hazard, step, injectionOverrides = {} }) {
   const regionData = DATA[region];
   const hazardData = regionData?.hazards?.[hazard];
   if (!regionData || !hazardData) return null;
@@ -35,9 +35,13 @@ export default function TelemetryPanel({ region, hazard, step }) {
   const rows = Object.keys(regionData.stations)
     .map((id) => {
       const station = regionData.stations[id];
-      const pct = hazardData.vals[id][step];
+      const injectedSev = injectionOverrides[id];
+      // Synthetic Data injection reports a severity key, not a probability --
+      // PCT_FOR_SEV is the same conversion MapPanel already uses for its own
+      // dots, so an injected station colors identically here and on the map.
+      const pct = injectedSev ? PCT_FOR_SEV[injectedSev] : hazardData.vals[id][step];
       const topDriver = [...(hazardData.drivers || [])].sort((a, b) => b.w[step] - a.w[step])[0];
-      return { id, station, pct, topDriver };
+      return { id, station, pct, topDriver, injected: Boolean(injectedSev) };
     })
     .sort((a, b) => b.pct - a.pct);
 
@@ -103,6 +107,14 @@ export default function TelemetryPanel({ region, hazard, step }) {
                   <td>{r.topDriver ? `${r.topDriver.label}: ${r.topDriver.vals[step]} ${r.topDriver.unit}` : '—'}</td>
                   <td>
                     <span className="status-pill" style={{ background: sev.hex }}>{sev.label.toUpperCase()}</span>
+                    {r.injected && (
+                      <span
+                        className="status-live-dot"
+                        style={{ background: sev.hex, boxShadow: `0 0 8px ${sev.hex}` }}
+                        title="Updated by synthetic data injection"
+                        aria-label="Recently updated by synthetic data injection"
+                      />
+                    )}
                   </td>
                 </tr>
               );

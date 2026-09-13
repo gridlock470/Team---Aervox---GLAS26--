@@ -13,7 +13,7 @@ import ModelPanel from './components/panels/ModelPanel.jsx'
 import CapPanel from './components/panels/CapPanel.jsx'
 import TelemetryPanel from './components/panels/TelemetryPanel.jsx'
 import EnginePanel from './components/panels/EnginePanel.jsx'
-import { DATA, regionPeak } from './data/nowcastData.js'
+import { DATA, HAZARDS, regionPeak, timeAt } from './data/nowcastData.js'
 import { sevFor } from './lib/severity.js'
 import { startSiren, stopSiren } from './lib/alertSound.js'
 import { fetchMe } from './lib/api.js'
@@ -90,6 +90,12 @@ export default function App() {
   const [auth, setAuth] = useState(readStoredAuth)
   const [authStatus, setAuthStatus] = useState(() => (readStoredAuth() ? 'checking' : 'anonymous'))
   const [lastUsedAt, setLastUsedAt] = useState(() => Date.now() - 5 * 60 * 1000)
+  // Synthetic-injection state, lifted here from MapPanel (which still owns
+  // the interval and the map-specific fly-to/siren behavior) so the other
+  // dock panels can see the same event MapPanel already reacts to. Keyed by
+  // the same "regionId-stationId" id MapPanel already builds for ALL_POINTS.
+  const [injectionOverrides, setInjectionOverrides] = useState({})
+  const [injectionAlerts, setInjectionAlerts] = useState([])
   const stageRef = useRef(null)
   const skipFirstRegionRef = useRef(true)
 
@@ -146,6 +152,66 @@ export default function App() {
     }
   }
 
+  // MapPanel's synthetic-injection interval calls this every time it
+  // actually flips a station (never on a no-op tick). Builds a synthetic
+  // alert per newly orange/red station in the SAME shape AlertsPanel/CapPanel
+  // already consume from DATA[region].alerts, so both render it unmodified.
+  // Drivers/Model deliberately get no fabricated per-station number here --
+  // drivers are region+hazard-global in the data model with no station
+  // dimension, so Model's existing "Last used" reuse and Drivers' own
+  // elevated-reading note (computed from injectionOverrides directly) are
+  // the only honest ways those two panels can reflect this.
+  function handleInjectionEvent(changes) {
+    const hazardName = HAZARDS.find((h) => h.id === hazard)?.name ?? hazard
+    const now = timeAt(step)
+
+    setInjectionOverrides((prev) => {
+      const next = { ...prev }
+      changes.forEach((c) => { next[`${c.regionId}-${c.stationId}`] = c.sev })
+      return next
+    })
+
+    const newAlerts = changes
+      .filter((c) => c.sev === 'red' || c.sev === 'orange')
+      .map((c) => ({
+        region: c.regionId,
+        sev: c.sev,
+        id: `SYN-${c.stationId}-${Date.now()}`,
+        headline: `${hazardName} signal detected near ${c.name}`,
+        area: c.name,
+        window: `${now} onward`,
+        sent: now,
+      }))
+    if (newAlerts.length) {
+      // Capped, not unbounded, but generously: ALL_POINTS spans every
+      // region, so a tight cap on this combined cross-region list would let
+      // noise from regions the operator isn't even viewing crowd out their
+      // own region's alerts once the cap is hit. 300 is enough headroom for
+      // a very long demo session (10s/tick, up to 3 per tick) without ever
+      // practically truncating a single region's own view.
+      setInjectionAlerts((prev) => [...newAlerts, ...prev].slice(0, 300))
+    }
+
+    // Same "the model was just asked to run again" semantics already used
+    // on region switch -- only when the event actually touches the region
+    // currently being viewed, so this keeps meaning "recently relevant"
+    // rather than just "the interval ticked somewhere".
+    if (changes.some((c) => c.regionId === region)) {
+      setLastUsedAt(Date.now())
+    }
+  }
+
+  // Turning the feed off reverts what it was actively changing (Telemetry's
+  // live pct/status, Drivers' elevated-reading note -- both driven off
+  // injectionOverrides) back to baseline, the same way the map's own dots
+  // revert. injectionAlerts is deliberately NOT cleared here: a real
+  // alerting/CAP log doesn't erase its history just because the live feed
+  // that produced it went quiet, and lastUsedAt stays too -- the model
+  // really was asked to run, that's a fact about the past, not a live value.
+  function handleSyntheticToggle(active) {
+    if (!active) setInjectionOverrides({})
+  }
+
   const activeSeverity = sevFor(regionPeak(region, hazard, step))
   const isAlerting = soundAlerts && activeSeverity !== 'green'
 
@@ -195,7 +261,23 @@ export default function App() {
     return () => document.removeEventListener('keydown', onKey)
   }, [mapFullscreen])
 
-  const alertCount = DATA[region].alerts.length
+  // MapPanel's ids span every region at once; re-key/filter down to just the
+  // region currently in view before handing anything to the dock panels, so
+  // they never need to know about MapPanel's cross-region id scheme, and so
+  // switching regions naturally hides/reveals the right synthetic events --
+  // same as the static baseline data already behaves.
+  const regionInjectionOverrides = Object.fromEntries(
+    Object.entries(injectionOverrides)
+      .map(([key, sev]) => {
+        const dash = key.indexOf('-')
+        return [key.slice(0, dash), key.slice(dash + 1), sev]
+      })
+      .filter(([regionId]) => regionId === region)
+      .map(([, stationId, sev]) => [stationId, sev])
+  )
+  const regionInjectionAlerts = injectionAlerts.filter((a) => a.region === region)
+
+  const alertCount = DATA[region].alerts.length + regionInjectionAlerts.length
   // Ordered by operator urgency, not by when each feature was built: Alerts
   // and the CAP log they're backed by come first (safety-critical), then the
   // core situational-awareness views (Telemetry, Points), then explainability
@@ -250,6 +332,8 @@ export default function App() {
           step={step}
           fullscreen={mapFullscreen}
           onToggleFullscreen={() => setMapFullscreen((prev) => !prev)}
+          onInjectionEvent={handleInjectionEvent}
+          onSyntheticToggle={handleSyntheticToggle}
         />
         <div className="stage-overlay">
           <TimelineStrip step={step} onStepChange={setStep} />
@@ -263,7 +347,16 @@ export default function App() {
         onSelect={setActivePanel}
         onClose={() => setActivePanel(null)}
       >
-        {Panel && <Panel region={region} hazard={hazard} step={step} lastUsedAt={lastUsedAt} />}
+        {Panel && (
+          <Panel
+            region={region}
+            hazard={hazard}
+            step={step}
+            lastUsedAt={lastUsedAt}
+            injectionOverrides={regionInjectionOverrides}
+            injectionAlerts={regionInjectionAlerts}
+          />
+        )}
       </InsightModal>
 
       {/* Fixed, full-viewport, pointer-events:none -- a second alarm channel

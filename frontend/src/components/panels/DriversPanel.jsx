@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { DATA, HAZARDS, STEPS, timeAt } from '../../data/nowcastData';
+import { SEV } from '../../lib/severity';
 import './DriversPanel.css';
 
 /*
@@ -94,10 +95,20 @@ function Sparkline({ driver, step }) {
   );
 }
 
-export default function DriversPanel({ region, hazard, step }) {
+export default function DriversPanel({ region, hazard, step, injectionOverrides = {} }) {
   const regionData = DATA[region];
   const hazardData = regionData?.hazards?.[hazard];
   const drivers = hazardData?.drivers;
+
+  // Drivers are region+hazard-global in this data model, with no per-station
+  // dimension -- there is no honest way to nudge a specific driver's number
+  // because one station spiked, so the numbers below stay exactly as
+  // computed. This note is the panel's only acknowledgment that a Synthetic
+  // Data event happened, naming the station rather than inventing a figure.
+  const elevated = Object.entries(injectionOverrides)
+    .filter(([, sev]) => sev === 'orange' || sev === 'red')
+    .map(([stationId, sev]) => ({ sev, name: regionData?.stations?.[stationId]?.name ?? stationId }))
+    .sort((a, b) => (a.sev === 'red' ? 0 : 1) - (b.sev === 'red' ? 0 : 1))[0];
 
   const ranked = useMemo(
     () => (drivers ? [...drivers].sort((a, b) => b.w[step] - a.w[step]) : []),
@@ -121,6 +132,19 @@ export default function DriversPanel({ region, hazard, step }) {
           {hazardName} over {regionData.title}, ranked by contribution at{' '}
           <span className="mono">{timeAt(step)}</span>.
         </p>
+
+        {elevated && (
+          <p className="dp-live-note">
+            <span
+              className="status-live-dot"
+              style={{ background: SEV[elevated.sev].hex, boxShadow: `0 0 8px ${SEV[elevated.sev].hex}` }}
+              aria-hidden="true"
+            />
+            A station reading just came in {SEV[elevated.sev].label.toLowerCase()} near{' '}
+            {elevated.name} (Synthetic Data). See Telemetry for that station &mdash; the
+            regional driver figures below are unaffected.
+          </p>
+        )}
 
         <div className="dp-legend">
           <span className="dp-legend-label">Lead time</span>

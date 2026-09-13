@@ -13,6 +13,12 @@ export const SEV = {
 
 export const SEV_ORDER = ['green', 'yellow', 'orange', 'red'];
 
+// A representative percentage for each severity key, for places that only
+// have a severity key (e.g. a synthetic station override) but need to feed
+// something that already expects a 0-100 probability, like sevFor() itself
+// or a radius calculation. Shared so every consumer picks the same number.
+export const PCT_FOR_SEV = { green: 8, yellow: 30, orange: 55, red: 85 };
+
 export function sevFor(pct) {
   if (pct >= 70) return 'red';
   if (pct >= 45) return 'orange';

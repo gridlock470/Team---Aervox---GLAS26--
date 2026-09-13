@@ -30,14 +30,16 @@ function status(windowText, nowText) {
   return { lead: 'Closed', at: clock(end) };
 }
 
-export default function CapPanel({ region }) {
+export default function CapPanel({ region, injectionAlerts = [] }) {
   const regionData = DATA[region];
   if (!regionData) return null;
 
   const now = timeAt(0);
 
-  /* Latest broadcast first. Copy before sorting. */
-  const rows = [...(regionData.alerts || [])].sort((a, b) =>
+  /* Latest broadcast first. Synthetic-injection alerts share the exact
+     {sev,id,headline,area,window,sent} shape this table already renders,
+     so they need no separate handling here -- same list AlertsPanel uses. */
+  const rows = [...(regionData.alerts || []), ...injectionAlerts].sort((a, b) =>
     String(b.sent).localeCompare(String(a.sent))
   );
 

@@ -15,6 +15,23 @@
 }
 .dp-context .mono{ color:var(--ink); }
 
+/* Synthetic Data injection note -- honest acknowledgment only, no fabricated
+   per-station driver number (this panel's data has no station dimension).
+   .status-live-dot is defined once, globally, in TelemetryPanel.css. */
+.dp-live-note{
+  display:flex;
+  align-items:center;
+  gap:2px;
+  margin-bottom:12px;
+  padding:8px 11px;
+  border:1px solid var(--line);
+  border-radius:var(--radius-sm);
+  background:var(--panel-raised);
+  font-size:11.5px;
+  line-height:1.5;
+  color:var(--ink-dim);
+}
+
 /* selected lead-time step, stated once for the whole list */
 .dp-legend{
   display:flex;

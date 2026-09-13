@@ -5,7 +5,7 @@ import { MapboxOverlay } from '@deck.gl/mapbox'
 import { ScatterplotLayer, BitmapLayer } from '@deck.gl/layers'
 import './MapPanel.css'
 import { DATA, HAZARDS, timeAt } from '../data/nowcastData.js'
-import { SEV, radiusMeters } from '../lib/severity.js'
+import { SEV, radiusMeters, PCT_FOR_SEV } from '../lib/severity.js'
 import { ensureAudioReady, startSiren, stopSiren } from '../lib/alertSound.js'
 import dgmrNowcast from '../data/dgmrNowcast.json'
 
@@ -15,14 +15,18 @@ import dgmrNowcast from '../data/dgmrNowcast.json'
 export const FULLSCREEN_TRANSITION_MS = 320
 
 // Every monitored station across every region, computed once -- DATA is a
-// static import, not something that changes at runtime.
+// static import, not something that changes at runtime. regionId/stationId
+// are kept alongside the combined id so a consumer (App.jsx, via
+// onInjectionEvent) can address a station in the same region-scoped way
+// nowcastData.js itself does, without re-parsing the combined id.
 const ALL_POINTS = Object.entries(DATA).flatMap(([regionId, rd]) =>
-  Object.entries(rd.stations).map(([id, st]) => ({ id: `${regionId}-${id}`, ...st }))
+  Object.entries(rd.stations).map(([id, st]) => ({ id: `${regionId}-${id}`, regionId, stationId: id, ...st }))
 )
 
 // Radius still communicates severity at a glance, just keyed by the demo
-// severity label now instead of a real forecast percentage.
-const RADIUS_PCT_FOR_SEV = { green: 8, yellow: 30, orange: 55, red: 85 }
+// severity label now instead of a real forecast percentage. Shared with
+// TelemetryPanel so a synthetic override reads the same way everywhere.
+const RADIUS_PCT_FOR_SEV = PCT_FOR_SEV
 
 function colorForSev(sevKey, alpha01) {
   const { rgb } = SEV[sevKey]
@@ -33,7 +37,7 @@ function randomPick(arr) {
   return arr[Math.floor(Math.random() * arr.length)]
 }
 
-export default function MapPanel({ region, hazard, step, fullscreen, onToggleFullscreen }) {
+export default function MapPanel({ region, hazard, step, fullscreen, onToggleFullscreen, onInjectionEvent, onSyntheticToggle }) {
   const containerRef = useRef(null)
   const mapRef = useRef(null)
   const overlayRef = useRef(null)
@@ -42,6 +46,13 @@ export default function MapPanel({ region, hazard, step, fullscreen, onToggleFul
   const [mapLoaded, setMapLoaded] = useState(false)
   const [showAiForecast, setShowAiForecast] = useState(false)
   const hoverInfoRef = useRef(null)
+  // The injection interval effect below only re-subscribes on
+  // syntheticActive, not on every App.jsx render -- kept as a ref (same
+  // pattern as hoverInfoRef) so it always calls the latest onInjectionEvent
+  // rather than the one captured when the interval was set up, without
+  // resetting the 10s cadence every time App.jsx re-renders for an
+  // unrelated reason.
+  const onInjectionEventRef = useRef(onInjectionEvent)
 
   // Every dot starts green (no synthetic event yet). Clicking one assigns a
   // random severity to each *future* lead-time step (Now stays green --
@@ -56,6 +67,10 @@ export default function MapPanel({ region, hazard, step, fullscreen, onToggleFul
   useEffect(() => {
     hoverInfoRef.current = hoverInfo
   }, [hoverInfo])
+
+  useEffect(() => {
+    onInjectionEventRef.current = onInjectionEvent
+  }, [onInjectionEvent])
 
   // Only generated for one region so far (see scripts/make_dgmr_nowcast.py) --
   // the toggle only appears where there is actually a frame to show.
@@ -118,6 +133,9 @@ export default function MapPanel({ region, hazard, step, fullscreen, onToggleFul
         chosen.forEach(({ point, sev }) => { next[point.id] = sev })
         return next
       })
+      onInjectionEventRef.current?.(chosen.map(({ point, sev }) => ({
+        regionId: point.regionId, stationId: point.stationId, name: point.name, sev,
+      })))
       const newlyRed = chosen.find((c) => c.sev === 'red')
       if (newlyRed) flyToAndAlert(newlyRed.point)
     }, 10000)
@@ -366,7 +384,18 @@ export default function MapPanel({ region, hazard, step, fullscreen, onToggleFul
             onClick={(e) => {
               e.stopPropagation()
               ensureAudioReady() // must run inside this click, not the interval, to unlock audio
-              setSyntheticActive((v) => !v)
+              setSyntheticActive((v) => {
+                const next = !v
+                // Switching the feed off reverts what it changed (dots back
+                // to baseline) -- but not stationOverrides, which came from
+                // a separate, deliberate click-to-select action, and not
+                // anything already logged as an alert (handled up in
+                // App.jsx's onSyntheticToggle) -- a real feed going quiet
+                // doesn't erase its own history.
+                if (!next) setInjectedOverrides({})
+                onSyntheticToggle?.(next)
+                return next
+              })
             }}
             title="Every 10s, randomly flip some dots to red/orange -- demo of live incoming data"
           >
