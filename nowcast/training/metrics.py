@@ -278,11 +278,12 @@ class NowcastMetrics:
     Inputs are ``(B, N_HAZARDS, N_LEADS, H, W)`` probability and target tensors.
     :meth:`compute` returns headline means (``csi``/``pod``/``far``/
     ``frequency_bias``/``pr_auc``, all ``nanmean`` over hazard*lead), per-hazard
-    ``csi/<hazard>``, the skill-optimal ``csi_best`` with its
-    ``csi_best_threshold``, overall ``ece``/``brier``/``reliability`` with
-    per-lead ``brier/lead_<k>h`` and ``reliability/lead_<k>h``, and
-    ``n_pos/<hazard>/lead_<k>h`` positive counts so a degenerate split is
-    visible rather than silently zero.
+    ``csi/<hazard>`` and ``frequency_bias/<hazard>``, the skill-optimal
+    ``csi_best`` with its ``csi_best_threshold`` (and per-hazard
+    ``csi_best/<hazard>``/``csi_best_threshold/<hazard>``), overall
+    ``ece``/``brier``/``reliability`` with per-lead ``brier/lead_<k>h`` and
+    ``reliability/lead_<k>h``, and ``n_pos/<hazard>/lead_<k>h`` positive counts
+    so a degenerate split is visible rather than silently zero.
 
     Passing ``event_mask`` additionally emits a ``storm/`` block scored only on
     the selected samples -- aggregate CSI over all windows is flattered by easy
@@ -315,6 +316,7 @@ class NowcastMetrics:
         result: dict[str, float] = {}
         for i, hazard in enumerate(config.HAZARDS):
             hazard_csi: list[float] = []
+            hazard_bias: list[float] = []
             hazard_curves: list[list[float]] = []
             for j, lead in enumerate(config.LEAD_TIMES_H):
                 pred = probs[:, i, j]
@@ -340,6 +342,7 @@ class NowcastMetrics:
                 )
                 curve = _csi_curve(pred, target, grid, self.target_threshold)
                 hazard_csi.append(value_csi)
+                hazard_bias.append(value_bias)
                 hazard_curves.append(curve)
                 all_csi.append(value_csi)
                 all_pod.append(value_pod)
@@ -352,6 +355,7 @@ class NowcastMetrics:
                     result[f"n_pos/{hazard}/lead_{lead}h"] = n_pos
             if detailed:
                 result[f"csi/{hazard}"] = _nanmean(hazard_csi)
+                result[f"frequency_bias/{hazard}"] = _nanmean(hazard_bias)
                 value, threshold = _best_from_curves(hazard_curves, grid)
                 result[f"csi_best/{hazard}"] = value
                 result[f"csi_best_threshold/{hazard}"] = threshold
