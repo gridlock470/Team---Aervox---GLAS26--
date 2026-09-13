@@ -65,8 +65,9 @@
   font-weight:800;
   cursor:pointer;
   box-shadow:0 0 14px rgba(234,179,8,0.24);
+  transition:box-shadow 200ms ease-out, transform 200ms ease-out;
 }
-.landing-nav-cta:hover{ box-shadow:0 0 20px rgba(234,179,8,0.4); }
+.landing-nav-cta:hover{ box-shadow:0 0 20px rgba(234,179,8,0.4); transform:translateY(-1px); }
 :root[data-theme="light"] .landing-nav-cta{ color:#FFFFFF; }
 
 @media (max-width: 780px){
@@ -128,20 +129,21 @@
   font-size:13.5px;
   font-weight:700;
   cursor:pointer;
+  transition:box-shadow 200ms ease-out, background 200ms ease-out, transform 200ms ease-out;
 }
 .landing-btn.primary{
   background:linear-gradient(135deg, var(--accent-bright), var(--accent));
   color:#0b0b0d;
   box-shadow:0 0 18px rgba(234,179,8,0.28);
 }
-.landing-btn.primary:hover{ box-shadow:0 0 24px rgba(234,179,8,0.42); }
+.landing-btn.primary:hover{ box-shadow:0 0 24px rgba(234,179,8,0.42); transform:translateY(-1px); }
 :root[data-theme="light"] .landing-btn.primary{ color:#FFFFFF; }
 .landing-btn.ghost{
   background:var(--panel-raised);
   color:var(--ink);
   border:1px solid var(--line-strong);
 }
-.landing-btn.ghost:hover{ background:var(--panel-hover); }
+.landing-btn.ghost:hover{ background:var(--panel-hover); transform:translateY(-1px); }
 
 /* ---------- radar scope ----------
    The one bold, non-user-triggered moment on the page: a live-reading
@@ -156,6 +158,20 @@
   transition:opacity 900ms ease-out 200ms;
 }
 .landing-scope.is-ready{ opacity:1; }
+
+/* Honesty label: the scope is a designed animation, not a live data feed --
+   sitting this close to copy that says "live station readings", it would
+   otherwise read as a real preview of the product. */
+.scope-caption{
+  position:absolute;
+  left:50%;
+  bottom:-26px;
+  transform:translateX(-50%);
+  white-space:nowrap;
+  font-size:10.5px;
+  color:var(--ink-faint);
+  letter-spacing:0.02em;
+}
 
 .scope-ring{
   position:absolute;
@@ -389,6 +405,7 @@
   letter-spacing:0.03em;
   color:var(--ink-dim);
   cursor:pointer;
+  transition:color 200ms ease-out, border-color 200ms ease-out;
 }
 .landing-start .auth-tab:hover{ color:var(--ink); }
 .landing-start .auth-tab.active{ color:var(--ink); border-bottom-color:var(--accent); }
@@ -420,6 +437,29 @@
   outline:none;
 }
 .landing-start .auth-form input:focus{ border-color:var(--accent-bright); box-shadow:var(--accent-wash) 0 0 0 3px; }
+
+/* Password Visibility (ui-ux-pro-max skill, Forms/Medium): let the person
+   typing see what they typed rather than trusting two masked fields match. */
+.landing-start .password-field{ position:relative; }
+.landing-start .password-field input{ width:100%; padding-right:40px; }
+.landing-start .password-toggle{
+  position:absolute;
+  right:4px;
+  top:50%;
+  transform:translateY(-50%);
+  width:30px;
+  height:30px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:none;
+  border:0;
+  border-radius:var(--radius-sm);
+  color:var(--ink-faint);
+  cursor:pointer;
+  transition:color 200ms ease-out;
+}
+.landing-start .password-toggle:hover{ color:var(--ink-dim); }
 
 .landing-start .auth-notice{
   margin:0;

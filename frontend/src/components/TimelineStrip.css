@@ -12,6 +12,7 @@
 }
 .timeline-track{ display:flex; align-items:center; gap:6px; }
 .step-btn{
+  min-height:44px;
   background:var(--panel-raised);
   border:1px solid var(--line);
   border-radius:var(--radius-sm);
@@ -22,6 +23,7 @@
   transition:color 140ms ease-out, background 140ms ease-out;
 }
 .step-btn:hover{ color:var(--ink); background:var(--panel-hover); }
+.step-btn:focus-visible{ outline-offset:-2px; }
 /* Selected lead time is an interface state, so it is gold-ringed like every
    other selection in the console -- never tinted with a severity colour. */
 .step-btn[aria-pressed="true"]{

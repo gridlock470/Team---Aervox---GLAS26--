@@ -196,18 +196,23 @@ export default function App() {
   }, [mapFullscreen])
 
   const alertCount = DATA[region].alerts.length
+  // Ordered by operator urgency, not by when each feature was built: Alerts
+  // and the CAP log they're backed by come first (safety-critical), then the
+  // core situational-awareness views (Telemetry, Points), then explainability
+  // (Drivers) and meta/diagnostic views (Model), with the explicitly
+  // decorative Live Compute demo last regardless of anything else.
   const tabs = [
-    { id: 'telemetry', label: 'Telemetry', icon: 'fa-solid fa-gauge-high' },
-    { id: 'alerts', label: 'Alerts', badge: alertCount, icon: 'fa-solid fa-bell' },
-    { id: 'points', label: 'Points', icon: 'fa-solid fa-location-dot' },
-    { id: 'drivers', label: 'Drivers', icon: 'fa-solid fa-wind' },
-    { id: 'model', label: 'Model', icon: 'fa-solid fa-brain' },
-    { id: 'cap', label: 'CAP log', icon: 'fa-solid fa-file-shield' },
-    { id: 'engine', label: 'Live Compute', icon: 'fa-solid fa-terminal' },
+    { id: 'alerts', label: 'Alerts', badge: alertCount, icon: 'fa-solid fa-bell', group: 'records' },
+    { id: 'cap', label: 'CAP log', icon: 'fa-solid fa-file-shield', group: 'records' },
+    { id: 'telemetry', label: 'Telemetry', icon: 'fa-solid fa-gauge-high', group: 'diagnostics' },
+    { id: 'points', label: 'Points', icon: 'fa-solid fa-location-dot', group: 'diagnostics' },
+    { id: 'drivers', label: 'Drivers', icon: 'fa-solid fa-wind', group: 'diagnostics' },
+    { id: 'model', label: 'Model', icon: 'fa-solid fa-brain', group: 'diagnostics' },
+    { id: 'engine', label: 'Live Compute', icon: 'fa-solid fa-terminal', group: 'diagnostics' },
   ]
 
   const activeTab = tabs.find((t) => t.id === activePanel) ?? null
-  const Panel = activeTab ? PANELS[activeTab.id] ?? TelemetryPanel : null
+  const Panel = activeTab ? PANELS[activeTab.id] ?? AlertsPanel : null
 
   // The gate is the entire front screen -- nothing about the console (map,
   // data, even the shell chrome) mounts until a session is confirmed.
@@ -219,7 +224,7 @@ export default function App() {
   }
 
   return (
-    <div className="shell">
+    <main className="shell">
       <Header
         region={region}
         onRegionChange={setRegion}
@@ -253,8 +258,9 @@ export default function App() {
 
       <InsightModal
         open={!!activeTab}
-        title={activeTab?.label}
-        icon={activeTab?.icon}
+        tabs={tabs}
+        activeId={activeTab?.id}
+        onSelect={setActivePanel}
         onClose={() => setActivePanel(null)}
       >
         {Panel && <Panel region={region} hazard={hazard} step={step} lastUsedAt={lastUsedAt} />}
@@ -264,6 +270,15 @@ export default function App() {
           alongside the siren rather than a themed severity indicator, so it
           reads as urgent from across a room even with the sound muted. */}
       {isAlerting && <div className="alert-border-glow" aria-hidden="true" />}
-    </div>
+
+      {/* Text equivalent of the siren/border-glow above for anyone not
+          relying on sound or a glance at the screen -- announced once per
+          severity transition, not on every render. */}
+      <div className="sr-only" role="status" aria-live="polite">
+        {isAlerting
+          ? `Current hazard reading: ${activeSeverity} warning level.`
+          : 'Current hazard reading: no active warning.'}
+      </div>
+    </main>
   )
 }

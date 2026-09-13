@@ -78,6 +78,7 @@
   display:flex;
   align-items:center;
   gap:7px;
+  min-height:44px;
   background:var(--overlay-bg);
   backdrop-filter:blur(8px);
   border:1px solid var(--line-strong);
@@ -91,6 +92,7 @@
   box-shadow:0 4px 16px rgba(0,0,0,0.4);
 }
 .map-fullscreen-exit:hover{ background:var(--panel-hover); }
+.map-fullscreen-exit:focus-visible{ outline-offset:-2px; }
 
 /* One flex column instead of each button hardcoding its own top offset --
    the AI toggle only exists for one region, so a fixed-offset layout left a
@@ -112,8 +114,8 @@
   display:flex;
   align-items:center;
   justify-content:center;
-  width:34px;
-  height:34px;
+  width:44px;
+  height:44px;
   background:var(--overlay-bg);
   backdrop-filter:blur(8px);
   border:1px solid var(--line-strong);
@@ -124,6 +126,7 @@
   box-shadow:0 4px 16px rgba(0,0,0,0.4);
 }
 .map-recenter:hover{ background:var(--panel-hover); color:var(--accent-bright); }
+.map-recenter:focus-visible{ outline-offset:-2px; }
 
 /* AI forecast toggle: off by default (this is a demo overlay, not the
    console's primary data), so it reads as a secondary, opt-in affordance
@@ -132,6 +135,7 @@
   display:flex;
   align-items:center;
   gap:7px;
+  min-height:44px;
   background:var(--overlay-bg);
   backdrop-filter:blur(8px);
   border:1px solid var(--line-strong);
@@ -146,6 +150,7 @@
   white-space:nowrap;
 }
 .map-ai-toggle:hover{ background:var(--panel-hover); }
+.map-ai-toggle:focus-visible{ outline-offset:-2px; }
 .map-ai-toggle.active{
   border-color:var(--accent-bright);
   background:var(--accent-wash);
@@ -159,6 +164,7 @@
   display:flex;
   align-items:center;
   gap:7px;
+  min-height:44px;
   background:var(--overlay-bg);
   backdrop-filter:blur(8px);
   border:1px solid var(--line-strong);
@@ -173,6 +179,7 @@
   white-space:nowrap;
 }
 .map-synthetic-toggle:hover{ background:var(--panel-hover); }
+.map-synthetic-toggle:focus-visible{ outline-offset:-2px; }
 .map-synthetic-toggle.active{
   border-color:var(--sev-orange);
   background:rgba(226,101,15,0.14);
@@ -235,3 +242,22 @@
 /* Attribution button glyph is a dark sprite; it only needs inverting on the
    dark theme, where the control sits on a near-black wash. */
 :root[data-theme="light"] .map-canvas .maplibregl-ctrl-attrib-button{ filter:none; }
+
+@media (max-width: 640px){
+  .map-controls-stack{ top:64px; right:8px; gap:8px; }
+  .map-overlay-title{ padding:6px 10px; font-size:10px; }
+}
+
+@media (max-width: 480px){
+  .map-ai-toggle span,
+  .map-synthetic-toggle span{ display:none; }
+  .map-ai-toggle,
+  .map-synthetic-toggle{ width:44px; justify-content:center; padding:7px; }
+  .stage .map-legend{
+    flex-direction:row;
+    flex-wrap:wrap;
+    gap:8px;
+    padding:8px 10px;
+    font-size:10px;
+  }
+}

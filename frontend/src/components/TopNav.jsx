@@ -38,24 +38,31 @@ export default function TopNav({ region, hazard, step, onHazardChange, tabs, onO
         })}
       </div>
 
-      <div className="top-nav-insights" role="group" aria-label="Insights">
-        {tabs.map((tab) => {
-          const badge = Number(tab.badge)
-          const showBadge = Number.isFinite(badge) && badge > 0
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              className="insight-btn"
-              onClick={() => onOpenPanel(tab.id)}
-            >
-              {tab.icon && <i className={tab.icon} aria-hidden="true"></i>}
-              <span>{tab.label}</span>
-              {showBadge && <span className="insight-btn-badge mono">{badge}</span>}
-            </button>
-          )
-        })}
+      <div className="top-nav-insights">
+        <div className="top-nav-insight-group" role="group" aria-label="Alerts & records">
+          {tabs.filter((t) => t.group === 'records').map((tab) => (
+            <InsightButton key={tab.id} tab={tab} onOpenPanel={onOpenPanel} />
+          ))}
+        </div>
+        <span className="top-nav-divider" aria-hidden="true"></span>
+        <div className="top-nav-insight-group" role="group" aria-label="Situational & diagnostics">
+          {tabs.filter((t) => t.group !== 'records').map((tab) => (
+            <InsightButton key={tab.id} tab={tab} onOpenPanel={onOpenPanel} />
+          ))}
+        </div>
       </div>
     </nav>
+  )
+}
+
+function InsightButton({ tab, onOpenPanel }) {
+  const badge = Number(tab.badge)
+  const showBadge = Number.isFinite(badge) && badge > 0
+  return (
+    <button type="button" className="insight-btn" onClick={() => onOpenPanel(tab.id)}>
+      {tab.icon && <i className={tab.icon} aria-hidden="true"></i>}
+      <span>{tab.label}</span>
+      {showBadge && <span className="insight-btn-badge mono">{badge}</span>}
+    </button>
   )
 }

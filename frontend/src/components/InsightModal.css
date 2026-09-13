@@ -50,8 +50,8 @@
 
 .insight-modal-close{
   flex:none;
-  width:28px;
-  height:28px;
+  width:44px;
+  height:44px;
   display:inline-flex;
   align-items:center;
   justify-content:center;
@@ -62,6 +62,62 @@
   cursor:pointer;
 }
 .insight-modal-close:hover{ color:var(--ink); border-color:var(--line-strong); }
+.insight-modal-close:focus-visible{ outline-offset:-2px; }
+
+/* Lets an operator move between panels without closing the modal --
+   icon-only so all 7 fit the modal's own width; overflow-x is a safety net,
+   not the expected case at this button count/size. */
+.insight-modal-tabs{
+  flex:none;
+  display:flex;
+  gap:6px;
+  padding:8px 16px;
+  border-bottom:1px solid var(--line);
+  overflow-x:auto;
+}
+.insight-tab{
+  position:relative;
+  flex:none;
+  width:44px;
+  height:44px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  background:var(--panel-raised);
+  border:1px solid var(--line);
+  border-radius:var(--radius-sm);
+  color:var(--ink-dim);
+  font-size:14px;
+  cursor:pointer;
+  transition:background 140ms ease-out, color 140ms ease-out, border-color 140ms ease-out;
+}
+.insight-tab:hover{ background:var(--panel-hover); color:var(--ink); }
+.insight-tab:focus-visible{ outline-offset:-2px; }
+.insight-tab.active{
+  color:var(--ink);
+  border-color:var(--accent-bright);
+  background:var(--accent-wash);
+}
+.insight-tab.active i{ color:var(--accent-bright); }
+.insight-tab-badge{
+  position:absolute;
+  top:-4px;
+  right:-4px;
+  min-width:16px;
+  height:16px;
+  padding:0 4px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  background:var(--sev-red);
+  color:#fff;
+  border-radius:8px;
+  font-size:9.5px;
+  font-weight:700;
+}
+@media (prefers-reduced-motion: reduce){
+  .insight-tab{ transition:none; }
+}
 
 .insight-modal-body{
   flex:1 1 auto;
@@ -93,4 +149,11 @@
 @media (max-width: 560px){
   .insight-modal-backdrop{ padding:12px; }
   .insight-modal{ max-height:88vh; }
+}
+
+@media (max-width: 480px){
+  .insight-modal-backdrop{ padding:8px; }
+  .insight-modal{ max-height:92vh; }
+  .insight-modal-head{ padding:11px 12px; }
+  .insight-modal-tabs{ padding:6px 12px; }
 }

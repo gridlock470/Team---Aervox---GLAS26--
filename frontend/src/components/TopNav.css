@@ -23,11 +23,25 @@
   gap:8px;
   flex-wrap:wrap;
 }
+.top-nav-insight-group{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-wrap:wrap;
+}
+.top-nav-divider{
+  width:1px;
+  align-self:stretch;
+  min-height:24px;
+  background:var(--line);
+  flex:none;
+}
 
 .hazard-pill{
   display:inline-flex;
   align-items:center;
   gap:7px;
+  min-height:44px;
   background:var(--panel-raised);
   border:1px solid var(--line);
   border-radius:20px;
@@ -39,6 +53,7 @@
   transition:background 140ms ease-out, border-color 140ms ease-out, color 140ms ease-out;
 }
 .hazard-pill:hover{ background:var(--panel-hover); border-color:var(--line-strong); }
+.hazard-pill:focus-visible{ outline-offset:-2px; }
 .hazard-pill.active{
   color:var(--ink);
   border-color:var(--accent-bright);
@@ -56,6 +71,7 @@
   display:inline-flex;
   align-items:center;
   gap:7px;
+  min-height:44px;
   background:var(--panel-raised);
   border:1px solid var(--line);
   border-radius:var(--radius-sm);
@@ -67,6 +83,7 @@
   transition:background 140ms ease-out, border-color 140ms ease-out, color 140ms ease-out;
 }
 .insight-btn:hover{ background:var(--panel-hover); color:var(--ink); border-color:var(--line-strong); }
+.insight-btn:focus-visible{ outline-offset:-2px; }
 .insight-btn i{ color:var(--accent-bright); }
 .insight-btn-badge{
   min-width:16px;
@@ -89,4 +106,34 @@
 @media (max-width: 720px){
   .top-nav{ justify-content:flex-start; }
   .hazard-pill-name{ display:none; }
+}
+
+/* Below 480px the bar switches from wrapping (which would grow it past its
+   fixed single-row height and steal space from the map) to a horizontally
+   scrollable strip -- same content, same fixed height, just scrollable. */
+@media (max-width: 480px){
+  .top-nav-hazards,
+  .top-nav-insights,
+  .top-nav-insight-group{
+    flex-wrap:nowrap;
+    overflow-x:auto;
+    /* Flex items default to min-width:auto, which blocks shrinking below
+       content size -- without this, overflow-x:auto never gets a chance to
+       kick in and the row just grows past its container instead. */
+    min-width:0;
+  }
+  /* Visually hidden, not display:none -- the label text is this button's
+     only accessible name (the icon is aria-hidden), so it has to stay in
+     the accessibility tree even once it's hidden from view. */
+  .insight-btn span{
+    position:absolute;
+    width:1px;
+    height:1px;
+    padding:0;
+    margin:-1px;
+    overflow:hidden;
+    clip:rect(0,0,0,0);
+    white-space:nowrap;
+    border:0;
+  }
 }

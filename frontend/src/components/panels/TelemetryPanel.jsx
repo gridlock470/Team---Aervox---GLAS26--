@@ -80,13 +80,16 @@ export default function TelemetryPanel({ region, hazard, step }) {
 
       <div className="detail-table-card">
         <table>
+          <caption className="sr-only">
+            Per-station probability, leading driver and status for {hazardName} at {timeAt(step)}
+          </caption>
           <thead>
             <tr>
-              <th>Station</th>
-              <th>Location Grid</th>
-              <th>Probability</th>
-              <th>Leading Driver</th>
-              <th>Status</th>
+              <th scope="col">Station</th>
+              <th scope="col">Location Grid</th>
+              <th scope="col">Probability</th>
+              <th scope="col">Leading Driver</th>
+              <th scope="col">Status</th>
             </tr>
           </thead>
           <tbody>

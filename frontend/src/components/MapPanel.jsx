@@ -356,7 +356,8 @@ export default function MapPanel({ region, hazard, step, fullscreen, onToggleFul
               onClick={(e) => { e.stopPropagation(); setShowAiForecast((v) => !v) }}
               title="Toggle AI-generated forecast overlay (demo, experimental)"
             >
-              <i className="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> AI Forecast (beta)
+              <i className="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i>
+            <span>AI Forecast (beta)</span>
             </button>
           )}
           <button
@@ -369,7 +370,8 @@ export default function MapPanel({ region, hazard, step, fullscreen, onToggleFul
             }}
             title="Every 10s, randomly flip some dots to red/orange -- demo of live incoming data"
           >
-            <i className="fa-solid fa-flask" aria-hidden="true"></i> Synthetic Data{syntheticActive ? ' (live)' : ''}
+            <i className="fa-solid fa-flask" aria-hidden="true"></i>
+            <span>Synthetic Data{syntheticActive ? ' (live)' : ''}</span>
           </button>
         </div>
         <div

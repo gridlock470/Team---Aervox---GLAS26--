@@ -73,3 +73,17 @@
   background:var(--seq-soft);
 }
 .point-tick.is-current{ background:var(--seq); }
+
+/* The two-column layout squeezes the sparkline against the name/pct on a
+   phone-width screen -- give it its own full-width row instead. */
+@media (max-width: 480px){
+  .point-row{
+    grid-template-columns:1fr;
+    grid-template-areas:
+      "main"
+      "sub"
+      "track";
+    row-gap:6px;
+  }
+  .point-track{ justify-content:flex-start; }
+}

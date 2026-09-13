@@ -24,6 +24,14 @@
   color:var(--ink-dim);
 }
 
+/* Scrolls the table itself on a narrow screen instead of relying on
+   .cap-panel's own overflow:hidden, which exists only to round the panel's
+   corners and would otherwise clip the table content outright. */
+.cap-table-wrap{
+  overflow-x:auto;
+  -webkit-overflow-scrolling:touch;
+}
+
 /* ---------- the record itself ---------- */
 .cap-table{
   width:100%;

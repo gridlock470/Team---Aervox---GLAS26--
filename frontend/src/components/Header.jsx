@@ -59,7 +59,9 @@ export default function Header({ region, onRegionChange, soundAlerts, onToggleSo
   const [clockFormat, setClockFormat] = useState(readStoredClockFormat)
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
+  const [overflowOpen, setOverflowOpen] = useState(false)
   const searchRef = useRef(null)
+  const overflowRef = useRef(null)
 
   const activeMeta = REGION_META.find((m) => m.id === region)
 
@@ -85,6 +87,17 @@ export default function Header({ region, onRegionChange, soundAlerts, onToggleSo
   useEffect(() => {
     function onDocClick(e) {
       if (searchRef.current && !searchRef.current.contains(e.target)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onDocClick)
+    return () => document.removeEventListener('mousedown', onDocClick)
+  }, [])
+
+  // Same pattern for the mobile overflow panel (sound/theme/clock-format/
+  // account controls, collapsed below 640px) -- it closes the same way the
+  // search suggestions do rather than introducing a second interaction model.
+  useEffect(() => {
+    function onDocClick(e) {
+      if (overflowRef.current && !overflowRef.current.contains(e.target)) setOverflowOpen(false)
     }
     document.addEventListener('mousedown', onDocClick)
     return () => document.removeEventListener('mousedown', onDocClick)
@@ -146,53 +159,75 @@ export default function Header({ region, onRegionChange, soundAlerts, onToggleSo
       </form>
 
       <div className="header-controls">
+        <div className="header-overflow" ref={overflowRef}>
         <button
           type="button"
-          className={soundAlerts ? 'sound-toggle is-on' : 'sound-toggle'}
-          data-sev={activeSeverity}
-          aria-pressed={soundAlerts}
-          title={soundAlerts ? 'Mute severity alert sounds' : 'Enable severity alert sounds'}
-          onClick={() => { ensureAudioReady(); onToggleSoundAlerts?.() }}
+          className="header-overflow-toggle"
+          aria-expanded={overflowOpen}
+          aria-controls="header-overflow-panel"
+          title="More controls"
+          onClick={() => setOverflowOpen((v) => !v)}
         >
-          <span className="sound-glyph" aria-hidden="true">
-            <i className={soundAlerts ? 'fa-solid fa-bell' : 'fa-solid fa-bell-slash'}></i>
-          </span>
-          {soundAlerts ? 'Alert Sound On' : 'Alert Sound Off'}
+          <i className="fa-solid fa-ellipsis-vertical" aria-hidden="true"></i>
+          <span className="sr-only">More controls</span>
         </button>
-        <button
-          type="button"
-          className="theme-toggle"
-          aria-pressed={theme === 'light'}
-          title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
-          onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+        <div
+          id="header-overflow-panel"
+          className={overflowOpen ? 'header-overflow-group is-open' : 'header-overflow-group'}
         >
-          <span className="theme-glyph" aria-hidden="true">
-            <i className={theme === 'dark' ? 'fa-solid fa-moon' : 'fa-solid fa-sun'}></i>
-          </span>
-          {theme === 'dark' ? 'Dark Obsidian' : 'Alabaster Gold'}
-        </button>
-        <div className="status-block">
-          <span className="live-pill"><span className="live-dot"></span>Live &mdash; refreshed every 10 min</span>
-          <div className="clock-row">
-            <span className="clock mono">{formatClock(now, clockFormat)}</span>
-            <button
-              type="button"
-              className="clock-format-toggle"
-              aria-pressed={clockFormat === '12h'}
-              title={clockFormat === '24h' ? 'Switch to 12-hour clock' : 'Switch to 24-hour clock'}
-              onClick={() => setClockFormat((f) => (f === '24h' ? '12h' : '24h'))}
-            >
-              {clockFormat === '24h' ? '24h' : '12h'}
+          <button
+            type="button"
+            className={soundAlerts ? 'sound-toggle is-on' : 'sound-toggle'}
+            data-sev={activeSeverity}
+            aria-pressed={soundAlerts}
+            title={soundAlerts ? 'Mute severity alert sounds' : 'Enable severity alert sounds'}
+            onClick={() => { ensureAudioReady(); onToggleSoundAlerts?.() }}
+          >
+            <span className="sound-glyph" aria-hidden="true">
+              <i className={soundAlerts ? 'fa-solid fa-bell' : 'fa-solid fa-bell-slash'}></i>
+            </span>
+            {soundAlerts ? 'Alert Sound On' : 'Alert Sound Off'}
+          </button>
+          <button
+            type="button"
+            className="theme-toggle"
+            aria-pressed={theme === 'light'}
+            title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+          >
+            <span className="theme-glyph" aria-hidden="true">
+              <i className={theme === 'dark' ? 'fa-solid fa-moon' : 'fa-solid fa-sun'}></i>
+            </span>
+            {theme === 'dark' ? 'Dark Obsidian' : 'Alabaster Gold'}
+          </button>
+          <button
+            type="button"
+            className="clock-format-toggle"
+            aria-pressed={clockFormat === '12h'}
+            title={clockFormat === '24h' ? 'Switch to 12-hour clock' : 'Switch to 24-hour clock'}
+            onClick={() => setClockFormat((f) => (f === '24h' ? '12h' : '24h'))}
+          >
+            {clockFormat === '24h' ? '24h' : '12h'}
+          </button>
+          <div className="account-block">
+            <span className="account-name">
+              <i className="fa-solid fa-user" aria-hidden="true"></i> {user.username}
+            </span>
+            <button type="button" className="login-btn is-logout" onClick={onLogOut}>
+              <i className="fa-solid fa-right-from-bracket" aria-hidden="true"></i> Log Out
             </button>
           </div>
         </div>
-        <div className="account-block">
-          <span className="account-name">
-            <i className="fa-solid fa-user" aria-hidden="true"></i> {user.username}
+        </div>
+        <div className="status-block">
+          <span className="live-pill">
+            <span className="live-dot"></span>
+            Live
+            <span className="live-detail" title="Refreshed every 10 min">&nbsp;&mdash; refreshed every 10 min</span>
           </span>
-          <button type="button" className="login-btn is-logout" onClick={onLogOut}>
-            <i className="fa-solid fa-right-from-bracket" aria-hidden="true"></i> Log Out
-          </button>
+          <div className="clock-row">
+            <span className="clock mono">{formatClock(now, clockFormat)}</span>
+          </div>
         </div>
       </div>
     </header>

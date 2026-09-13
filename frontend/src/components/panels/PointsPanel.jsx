@@ -2,6 +2,17 @@ import { DATA, STEPS } from '../../data/nowcastData.js';
 import { SEV, sevFor } from '../../lib/severity.js';
 import './PointsPanel.css';
 
+/* The sparkline ticks are aria-hidden (decorative bars, not a control), so
+   this is the text equivalent of the trend they draw -- first vs. last
+   lead-time value in the series, the same numbers the bars are drawn from. */
+function trendDirection(series) {
+  const first = series[0];
+  const last = series[series.length - 1];
+  if (last > first) return 'rising';
+  if (last < first) return 'falling';
+  return 'flat';
+}
+
 /* Monitored points for the selected region, ranked by current probability so
    the point that needs attention is always first. Moved off the persistent
    rail into the dock -- it is reference data, not something to keep on screen. */
@@ -26,7 +37,7 @@ export default function PointsPanel({ region, hazard, step }) {
         Probability at <span className="mono">{STEPS[step].toLowerCase()}</span>, highest first.
       </p>
 
-      <ul className="points-list">
+      <ul className="points-list" aria-label="Monitored stations, ranked by probability, highest first">
         {rows.map((r) => {
           const sev = SEV[sevFor(r.pct)];
           return (
@@ -50,6 +61,7 @@ export default function PointsPanel({ region, hazard, step }) {
                   />
                 ))}
               </div>
+              <span className="sr-only">Probability trend across lead times: {trendDirection(r.series)}.</span>
             </li>
           );
         })}

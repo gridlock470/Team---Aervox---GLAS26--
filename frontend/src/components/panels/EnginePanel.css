@@ -119,3 +119,12 @@
 @keyframes ep-blink{ 50%{ opacity:0; } }
 
 :root[data-theme="light"] .ep-terminal{ background:#0B0D0A; }
+
+/* The failure mode here is vertical, not horizontal -- this panel's fixed
+   220px terminal plus its metric rows can overflow the modal's own
+   max-height:min(78vh,720px) on a short viewport, phone or otherwise. */
+@media (max-width: 480px), (max-height: 700px){
+  .ep-terminal{ height:160px; }
+  .ep-metric-label{ flex-basis:64px; }
+  .ep-section{ margin-bottom:10px; }
+}

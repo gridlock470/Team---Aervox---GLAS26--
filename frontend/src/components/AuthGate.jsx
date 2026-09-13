@@ -64,6 +64,33 @@ const CAPABILITIES = [
   },
 ]
 
+// Password Visibility is a Medium-severity Forms finding (ui-ux-pro-max
+// skill, `--domain ux`): "let users see password while typing." One small
+// component instead of repeating the eye-toggle markup at all three call
+// sites (signup password, confirm, sign-in password).
+function PasswordField({ value, onChange, autoComplete, minLength, visible, onToggleVisible }) {
+  return (
+    <div className="password-field">
+      <input
+        type={visible ? 'text' : 'password'}
+        value={value}
+        onChange={onChange}
+        autoComplete={autoComplete}
+        required
+        minLength={minLength}
+      />
+      <button
+        type="button"
+        className="password-toggle"
+        onClick={onToggleVisible}
+        aria-label={visible ? 'Hide password' : 'Show password'}
+      >
+        <i className={visible ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye'} aria-hidden="true"></i>
+      </button>
+    </div>
+  )
+}
+
 function scrollToSection(id) {
   const el = document.getElementById(id)
   if (!el) return
@@ -85,6 +112,8 @@ export default function AuthGate({ onAuthenticated }) {
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [busy, setBusy] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
   const navRef = useRef(null)
 
   // One orchestrated entrance for the hero on first paint -- deliberately
@@ -185,6 +214,7 @@ export default function AuthGate({ onAuthenticated }) {
           <span className="scope-blip sev-yellow" style={{ top: '58%', left: '38%' }}></span>
           <span className="scope-blip sev-orange" style={{ top: '68%', left: '60%', animationDelay: '0.6s' }}></span>
           <span className="scope-blip sev-red" style={{ top: '42%', left: '48%', animationDelay: '1.1s' }}></span>
+          <span className="scope-caption">Illustrative preview, not live telemetry</span>
         </div>
 
         <button type="button" className="landing-scroll-cue" onClick={() => scrollToSection('mission')} aria-label="Scroll to learn more">
@@ -308,24 +338,24 @@ export default function AuthGate({ onAuthenticated }) {
                 </label>
                 <label>
                   <span>Password</span>
-                  <input
-                    type="password"
+                  <PasswordField
                     value={form.password}
                     onChange={update('password')}
                     autoComplete="new-password"
-                    required
                     minLength={8}
+                    visible={showPassword}
+                    onToggleVisible={() => setShowPassword((v) => !v)}
                   />
                 </label>
                 <label>
                   <span>Confirm password</span>
-                  <input
-                    type="password"
+                  <PasswordField
                     value={form.confirm}
                     onChange={update('confirm')}
                     autoComplete="new-password"
-                    required
                     minLength={8}
+                    visible={showConfirm}
+                    onToggleVisible={() => setShowConfirm((v) => !v)}
                   />
                 </label>
               </>
@@ -343,12 +373,12 @@ export default function AuthGate({ onAuthenticated }) {
                 </label>
                 <label>
                   <span>Password</span>
-                  <input
-                    type="password"
+                  <PasswordField
                     value={form.password}
                     onChange={update('password')}
                     autoComplete="current-password"
-                    required
+                    visible={showPassword}
+                    onToggleVisible={() => setShowPassword((v) => !v)}
                   />
                 </label>
               </>

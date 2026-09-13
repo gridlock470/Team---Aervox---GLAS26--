@@ -113,6 +113,21 @@ h1,h2,h3,p{ margin:0; }
 button{ font:inherit; color:inherit; }
 :focus-visible{ outline:2px solid var(--focus); outline-offset:2px; }
 
+/* Visually hidden but still reachable by screen readers -- used wherever a
+   control's visible label is an icon and the text equivalent has to exist
+   somewhere in the DOM instead. */
+.sr-only{
+  position:absolute;
+  width:1px;
+  height:1px;
+  padding:0;
+  margin:-1px;
+  overflow:hidden;
+  clip:rect(0,0,0,0);
+  white-space:nowrap;
+  border:0;
+}
+
 /* The console's one live indicator lives in the header. It is a 2.4s opacity
    breath, not a glow — loud enough to answer "is this feed running?", quiet
    enough that it never competes with a red alert. */
