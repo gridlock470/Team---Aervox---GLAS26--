@@ -13,6 +13,7 @@ import ModelPanel from './components/panels/ModelPanel.jsx'
 import CapPanel from './components/panels/CapPanel.jsx'
 import TelemetryPanel from './components/panels/TelemetryPanel.jsx'
 import EnginePanel from './components/panels/EnginePanel.jsx'
+import InsightsPanel from './components/panels/InsightsPanel.jsx'
 import { DATA, HAZARDS, regionPeak, timeAt } from './data/nowcastData.js'
 import { sevFor } from './lib/severity.js'
 import { startSiren, stopSiren } from './lib/alertSound.js'
@@ -40,6 +41,7 @@ const PANELS = {
   drivers: DriversPanel,
   model: ModelPanel,
   cap: CapPanel,
+  insights: InsightsPanel,
   engine: EnginePanel,
 }
 
@@ -290,6 +292,7 @@ export default function App() {
     { id: 'points', label: 'Points', icon: 'fa-solid fa-location-dot', group: 'diagnostics' },
     { id: 'drivers', label: 'Drivers', icon: 'fa-solid fa-wind', group: 'diagnostics' },
     { id: 'model', label: 'Model', icon: 'fa-solid fa-brain', group: 'diagnostics' },
+    { id: 'insights', label: 'Insights', icon: 'fa-solid fa-chart-column', group: 'diagnostics' },
     { id: 'engine', label: 'Live Compute', icon: 'fa-solid fa-terminal', group: 'diagnostics' },
   ]
 
@@ -355,6 +358,7 @@ export default function App() {
             lastUsedAt={lastUsedAt}
             injectionOverrides={regionInjectionOverrides}
             injectionAlerts={regionInjectionAlerts}
+            token={auth.token}
           />
         )}
       </InsightModal>

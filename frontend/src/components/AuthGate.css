@@ -354,6 +354,10 @@
   border-top:1px solid var(--line);
 }
 
+
+
+
+
 .auth-gate-card{
   width:min(420px, 100%);
   display:flex;

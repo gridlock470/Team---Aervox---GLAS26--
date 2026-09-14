@@ -46,8 +46,8 @@
     "header"
     "topnav"
     "stage";
-  gap:12px;
-  padding:12px;
+  gap:16px;
+  padding:16px;
   background:var(--bg);
   overflow:hidden;
 }
@@ -79,7 +79,7 @@
    applied to this same element), this rule only owns the two end states. */
 .stage.is-fullscreen{
   position:fixed;
-  inset:12px;
+  inset:16px;
   z-index:80;
   border-radius:var(--radius);
   box-shadow:0 24px 64px rgba(0,0,0,0.55);

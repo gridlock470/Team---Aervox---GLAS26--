@@ -1,11 +1,34 @@
 import express from 'express'
 import cors from 'cors'
+import multer from 'multer'
+import { execFile } from 'node:child_process'
+import { randomUUID } from 'node:crypto'
+import { unlink } from 'node:fs/promises'
+import os from 'node:os'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { createUser, findUserByUsername, findUserByEmail, findUserByLogin, findUserById } from './db.js'
 import { hashPassword, verifyPassword, signToken, requireAuth } from './auth.js'
 
 const app = express()
 app.use(cors())
 app.use(express.json())
+
+// backend/src -> backend -> project root, where scripts/ and .venv/ live.
+const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
+const PYTHON_PATH = path.join(PROJECT_ROOT, '.venv', 'Scripts', 'python.exe')
+const INSPECT_SCRIPT = path.join(PROJECT_ROOT, 'scripts', 'inspect_netcdf.py')
+
+// Real uploads are 0.5-8 MB (IMERG daily / ERA5 monthly) -- 100 MB is
+// generous headroom, not a tight guess, and diskStorage (not memory) since
+// the Python script needs a real file path to open, not a buffer.
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => cb(null, os.tmpdir()),
+    filename: (req, file, cb) => cb(null, `${randomUUID()}.nc`),
+  }),
+  limits: { fileSize: 100 * 1024 * 1024 },
+})
 
 const USERNAME_RE = /^[a-zA-Z0-9_.-]{3,24}$/
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -61,6 +84,37 @@ app.get('/api/auth/me', requireAuth, (req, res) => {
   const user = findUserById(req.user.sub)
   if (!user) return res.status(404).json({ error: 'Account no longer exists.' })
   res.json({ user: publicUser(user) })
+})
+
+app.post('/api/insights/netcdf', requireAuth, upload.single('file'), async (req, res) => {
+  const file = req.file
+  if (!file) {
+    return res.status(400).json({ error: 'No file was uploaded.' })
+  }
+  if (!/\.nc$/i.test(file.originalname)) {
+    await unlink(file.path).catch(() => {})
+    return res.status(400).json({ error: 'Only .nc (NetCDF) files are supported.' })
+  }
+
+  execFile(
+    PYTHON_PATH,
+    [INSPECT_SCRIPT, file.path],
+    { timeout: 60000, maxBuffer: 10 * 1024 * 1024 },
+    async (err, stdout) => {
+      await unlink(file.path).catch(() => {})
+
+      if (err) {
+        return res.status(500).json({ error: 'Could not analyze this file.' })
+      }
+      let result
+      try {
+        result = JSON.parse(stdout)
+      } catch {
+        return res.status(500).json({ error: 'Could not analyze this file.' })
+      }
+      res.json(result)
+    }
+  )
 })
 
 const PORT = process.env.PORT || 4000

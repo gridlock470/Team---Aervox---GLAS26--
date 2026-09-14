@@ -138,7 +138,7 @@ export default function MapPanel({ region, hazard, step, fullscreen, onToggleFul
       })))
       const newlyRed = chosen.find((c) => c.sev === 'red')
       if (newlyRed) flyToAndAlert(newlyRed.point)
-    }, 10000)
+    }, 5000)
     return () => clearInterval(id)
   }, [syntheticActive])
 
@@ -400,7 +400,7 @@ export default function MapPanel({ region, hazard, step, fullscreen, onToggleFul
             title="Every 10s, randomly flip some dots to red/orange -- demo of live incoming data"
           >
             <i className="fa-solid fa-flask" aria-hidden="true"></i>
-            <span>Synthetic Data{syntheticActive ? ' (live)' : ''}</span>
+            <span>Data injection{syntheticActive ? ' (live)' : ''}</span>
           </button>
         </div>
         <div
